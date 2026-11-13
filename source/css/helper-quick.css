@@ -1,0 +1,280 @@
+*{
+  box-sizing:border-box;
+}
+
+:root{
+  color-scheme:dark;
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:13px;
+  color:#f4f1ff;
+}
+
+html,body{
+  margin:0;
+  width:374px;
+  max-height:600px;
+  overflow-x:hidden;
+  background:#181428;
+}
+
+body{
+  overflow-y:auto;
+}
+
+button,input,select{
+  font:inherit;
+}
+
+button{
+  cursor:pointer;
+}
+
+.helper{
+  width:100%;
+  padding:15px 16px 12px;
+}
+
+.header{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  margin-bottom:13px;
+}
+
+.mark{
+  border-radius:11px;
+  background:#352858;
+}
+
+.header>div{
+  display:flex;
+  flex-direction:column;
+  flex:1;
+  gap:1px;
+}
+
+.header strong{
+  font-size:15px;
+  letter-spacing:-.03em;
+}
+
+.header small{
+  font-size:11px;
+  color:#c8bddf;
+}
+
+.version{
+  font-size:10px;
+  letter-spacing:.07em;
+  color:#c3adff;
+  border:1px solid #584581;
+  padding:4px 5px;
+  border-radius:5px;
+}
+
+.status{
+  background:#272139;
+  color:#e7dbff;
+  border:1px solid #514165;
+  border-radius:9px;
+  padding:10px 12px;
+  font-size:12px;
+  line-height:1.4;
+  margin-bottom:14px;
+}
+
+.site,.automation{
+  border:1px solid #403552;
+  background:#211b30;
+  border-radius:11px;
+  padding:14px;
+  margin-bottom:11px;
+}
+
+.section-title{
+  font-size:14px;
+  font-weight:750;
+  margin-bottom:12px;
+}
+
+.field{
+  display:flex;
+  flex-direction:column;
+  font-weight:600;
+  font-size:11px;
+  color:#cbbfe2;
+  gap:6px;
+  margin-bottom:12px;
+}
+
+.field input,.field select{
+  width:100%;
+  background:#171323;
+  border:1px solid #584669;
+  border-radius:8px;
+  color:#fff;
+  min-height:36px;
+  padding:7px 10px;
+  outline:none;
+}
+
+.field input:focus-visible,.field select:focus-visible{
+  border-color:#ae91ff;
+  box-shadow:0 0 0 2px #694d974d;
+}
+
+.field input::placeholder{
+  color:#8d809f;
+}
+
+.check{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  margin-bottom:12px;
+  color:#ddd3ea;
+}
+
+input[type="checkbox"]{
+  accent-color:#9c76ff;
+  width:15px;
+  height:15px;
+  flex:none;
+}
+
+.primary,.secondary{
+  display:block;
+  width:100%;
+  border-radius:8px;
+  min-height:37px;
+  padding:9px 12px;
+  font-weight:650;
+}
+
+.primary{
+  background:#8358f1;
+  border:1px solid #a17afb;
+  color:white;
+}
+
+.primary:hover{
+  background:#9269ff;
+}
+
+.primary:disabled{
+  opacity:.48;
+  cursor:not-allowed;
+}
+
+.secondary{
+  background:transparent;
+  border:1px solid #514462;
+  color:#ddd0f7;
+  margin-top:7px;
+}
+
+.secondary:hover{
+  border-color:#a788e8;
+  background:#30253e;
+}
+
+.feedback{
+  font-size:11px;
+  line-height:1.45;
+  color:#a9eac8;
+  min-height:1.3em;
+  margin:8px 0 0;
+}
+
+.feedback.error{
+  color:#ffb3b3;
+}
+
+.notice{
+  font-size:11px;
+  color:#f8dda9;
+  padding:10px;
+  background:#413324;
+  border-left:3px solid #d9ab49;
+  border-radius:4px;
+  line-height:1.45;
+  margin:0 0 11px;
+}
+
+.hidden{
+  display:none!important;
+}
+
+.toggle{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  padding:6px 0;
+  align-items:center;
+}
+
+.toggle+.toggle{
+  border-top:1px solid #3b304b;
+  margin-top:5px;
+  padding-top:12px;
+}
+
+.toggle span{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.toggle strong{
+  font-size:12px;
+}
+
+.toggle small{
+  font-size:10px;
+  line-height:1.3;
+  color:#b2a6c8;
+}
+
+footer{
+  display:flex;
+  gap:9px;
+}
+
+.text-button{
+  flex:1;
+  min-height:33px;
+  color:#e4d5ff;
+  border:1px solid #55466b;
+  background:#2d2440;
+  border-radius:7px;
+  font-weight:600;
+  font-size:12px;
+}
+
+.text-button:hover{
+  background:#3e3058;
+}
+
+.privacy{
+  color:#ada2c0;
+  font-size:10px;
+  line-height:1.4;
+  padding:11px 2px 0;
+}
+
+/* Keep Proton's controls accessible in Chromium's height-limited popup. */
+.helper {
+  padding-bottom: 88px;
+}
+
+footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
+  width: 374px;
+  padding: 10px 16px;
+  background: #181428;
+  border-top: 1px solid #493955;
+}

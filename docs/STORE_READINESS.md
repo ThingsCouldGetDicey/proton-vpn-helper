@@ -16,3 +16,5 @@ Initial target: Chrome Web Store, with Brave and Vivaldi compatibility testing. 
 Do not advertise the extension as bypassing legally mandatory age or identity verification.
 
 Chrome Web Store policies: https://developer.chrome.com/docs/webstore/program-policies/policies
+
+The new toolbar shortcut and split-tunnelling conversion have isolated Chromium tests; these are NOT evidence of authenticated Proton traffic, permission compatibility on every browser, or marketplace approval.

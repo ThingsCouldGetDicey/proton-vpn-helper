@@ -163,6 +163,7 @@ module.exports = (_, argv, options) => {
 			onboarding: './source/js/onboarding.ts',
 			popup: './source/js/popup.ts',
 			'site-router': './source/js/siteRouter/options.ts',
+			'helper-quick': './source/js/siteRouter/quickPopup.ts',
 			'site-router-content': './source/js/siteRouter/content.ts',
 			transmit: './source/js/transmit.ts',
 			['css/popup']: './source/css/popup.scss',

@@ -15,9 +15,10 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npx tsc --noEmit --pretty false
-      - run: npx stylelint source/css/site-router.css
+      - run: npx stylelint source/css/site-router.css source/css/helper-quick.css
       - name: Deterministic site routing tests
         run: |
           TS_NODE_SKIP_PROJECT=1 TS_NODE_COMPILER_OPTIONS='{"module":"Node16","moduleResolution":"Node16","target":"ES2020","rootDir":".","ignoreDeprecations":"6.0"}' npx ts-node tests/site_router.test.ts
       - run: python3 -m unittest discover -s tests -p test_policy_store.py -v
+      - run: python3 -m py_compile tests/toolbar_integration.py
       - run: npm run build

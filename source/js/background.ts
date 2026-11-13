@@ -12,11 +12,13 @@ import {initAuthInterceptor} from './vpn/initAuthInterceptor';
 import {initSentry} from './tools/sentry';
 import {setProxyToWaiterHost} from './tools/proxy';
 import {installSiteRouterDetector} from './siteRouter/detector';
+import {installSiteRouterToolbarBadge} from './siteRouter/toolbarBadge';
 import {installSiteRouterNativeSync} from './siteRouter/nativeSync';
 
 triggerPromise(setProxyToWaiterHost());
 initSentry();
 installSiteRouterDetector();
+installSiteRouterToolbarBadge();
 installSiteRouterNativeSync();
 initAuthInterceptor();
 initMessaging();

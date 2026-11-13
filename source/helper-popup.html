@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Proton VPN Helper — Website country shortcut</title>
+<link rel="stylesheet" href="css/helper-quick.css">
+</head>
+<body>
+<main class="helper">
+  <header class="header">
+    <img class="mark" src="img/icon-48.png" alt="" width="34" height="34">
+    <div><strong>Proton VPN Helper</strong><small>Independent • Unofficial</small></div>
+    <span class="version">BETA</span>
+  </header>
+  <div class="status" id="vpn-status" role="status" aria-live="polite">Checking VPN connection…</div>
+  <section class="site">
+    <div class="section-title">Route this website</div>
+    <label class="field" for="site-host">Website domain
+      <input id="site-host" type="text" autocomplete="off" spellcheck="false" placeholder="example.com">
+    </label>
+    <label class="field" for="country">Preferred VPN exit country
+      <select id="country">
+        <option value="">Use normal Proton country</option>
+        <option value="GB">United Kingdom</option><option value="NL">Netherlands</option>
+        <option value="CH">Switzerland</option><option value="US">United States</option>
+        <option value="CA">Canada</option><option value="DE">Germany</option>
+        <option value="FR">France</option><option value="IE">Ireland</option>
+        <option value="SE">Sweden</option><option value="NO">Norway</option>
+        <option value="FI">Finland</option><option value="DK">Denmark</option>
+        <option value="IS">Iceland</option><option value="ES">Spain</option>
+        <option value="IT">Italy</option><option value="PL">Poland</option>
+        <option value="AU">Australia</option><option value="JP">Japan</option>
+        <option value="SG">Singapore</option><option value="BR">Brazil</option>
+        <option value="MX">Mexico</option>
+      </select>
+    </label>
+    <label class="check"><input id="subdomains" type="checkbox" checked> Include this site's subdomains</label>
+    <p class="notice hidden" id="split-notice" role="alert"></p>
+    <button id="save-route" class="primary" type="button">Save website route</button>
+    <button id="remove-route" class="secondary" type="button">Remove country preference</button>
+    <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+  </section>
+  <section class="automation">
+    <label class="toggle"><span><strong>Detect region restrictions</strong><small>Limited page text, processed locally</small></span><input id="auto-detect" type="checkbox"></label>
+    <label class="toggle"><span><strong>Try another country automatically</strong><small>At most 3 trials; off by default</small></span><input id="auto-retry" type="checkbox"></label>
+  </section>
+  <footer>
+    <button id="open-proton" class="text-button" type="button">Proton VPN controls</button>
+    <button id="open-settings" class="text-button" type="button">All website rules</button>
+  </footer>
+  <div class="privacy">Saving a rule does not prove that Proton is connected or that the exit IP changed.</div>
+</main>
+<script src="js/helper-quick.js"></script>
+</body></html>

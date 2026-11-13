@@ -1,5 +1,7 @@
 import * as assert from 'node:assert/strict';
 import {buildRoutePacCases, siteRouteBypassGuard} from '../source/js/siteRouter/pac';
+import {evaluateSiteSplitConflict} from '../source/js/siteRouter/splitConflict';
+import {SplitTunnelingMode} from '../source/js/vpn/WebsiteFilter';
 import {classifyBlock, DEFAULT_POLICY, findRule, normalizeDomain, validatePolicy} from '../source/js/siteRouter/policy';
 
 function test(name: string, cb: () => void) {
@@ -91,4 +93,27 @@ test('include-only split tunnelling takes precedence over country routes', () =>
 	assert.equal(evaluate('excluded.example.org'),'DIRECT');
 	assert.equal(siteRouteBypassGuard('true'),'');
 	assert.equal(siteRouteBypassGuard('false'),'!(false)');
+});
+
+test('toolbar warns for an exact Proton exclusion and never removes a parent exclusion', () => {
+  const exact={enabled:true,mode:SplitTunnelingMode.Exclude,value:[
+    {domain:'example.org',withSubDomains:true,mode:SplitTunnelingMode.Exclude},
+  ]};
+  const direct=evaluateSiteSplitConflict('example.org',exact);
+  assert.equal(direct.kind,'excluded');
+  assert.equal(direct.canResolve,true);
+  const child=evaluateSiteSplitConflict('shop.example.org',exact);
+  assert.equal(child.kind,'excluded');
+  assert.equal(child.canResolve,false);
+  assert.equal(child.matchedDomain,'example.org');
+  assert.equal(evaluateSiteSplitConflict('other.example.org', {...exact, enabled:false}).kind,'none');
+});
+test('toolbar identifies include-only sites and leaves included sites unchanged', () => {
+  const list={enabled:true,mode:SplitTunnelingMode.Include,value:[
+    {domain:'example.org',withSubDomains:true,mode:SplitTunnelingMode.Include},
+  ]};
+  assert.equal(evaluateSiteSplitConflict('sub.example.org',list).kind,'none');
+  const candidate=evaluateSiteSplitConflict('other.example.net',list);
+  assert.equal(candidate.kind,'include-only');
+  assert.equal(candidate.canResolve,true);
 });
