@@ -1,6 +1,6 @@
 import {isOauthAllowed} from '../account/partner/oauth';
 import {getRuntime} from '../tools/getRuntime';
-import {initOnboarding} from './initOnboarding';
+
 
 export const initPostInstallationHook = () => {
 	const runtime = getRuntime();
@@ -12,7 +12,9 @@ export const initPostInstallationHook = () => {
 
 		switch (details.reason) {
 			case 'install':
-				await initOnboarding();
+				// The Helper is configured from its toolbar. Never open a tab
+                // automatically when installed in the user's live profile.
+                break;
 		}
 	});
 };

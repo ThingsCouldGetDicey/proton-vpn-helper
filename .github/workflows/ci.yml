@@ -21,4 +21,5 @@ jobs:
           TS_NODE_SKIP_PROJECT=1 TS_NODE_COMPILER_OPTIONS='{"module":"Node16","moduleResolution":"Node16","target":"ES2020","rootDir":".","ignoreDeprecations":"6.0"}' npx ts-node tests/site_router.test.ts
       - run: python3 -m unittest discover -s tests -p test_policy_store.py -v
       - run: python3 -m py_compile tests/toolbar_integration.py
+      - run: python3 -m py_compile tests/coexistence_browser.py
       - run: npm run build
