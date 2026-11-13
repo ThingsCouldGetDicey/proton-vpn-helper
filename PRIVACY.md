@@ -29,3 +29,7 @@ The combined extension stores a local boolean permission that defaults off. It i
 ## Optional public-IP verification
 
 The browser extension automatically observes Proton's connection state and Chrome proxy ownership locally. External checks are **off by default** and use https://api.country.is/ only after an explicit button click or when recurring verification is enabled. Country.is receives the public IP of each check. No Proton credentials, page content, or saved website rules are sent. Exit-IP results stay in extension memory and expire after five minutes; a changed connection invalidates the evidence.
+
+## Official Proton account isolation
+
+The Helper does not read, export or duplicate account tokens from another browser extension. Signing in to the official Proton extension does not authorise this independent extension to read its login state. Status messages only describe the Helper's own account session and observable browser proxy ownership.

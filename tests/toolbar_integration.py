@@ -77,7 +77,7 @@ def main():
 
             for _ in range(40):
                 state=js("return document.querySelector('#vpn-status')?.textContent")
-                if state and 'VPN disconnected' in state: break
+                if state and 'Helper has no Proton session' in state: break
                 time.sleep(.15)
             else:
                 diagnostic=js("return Promise.race([chrome.runtime.sendMessage({type:'protonSiteRouterStatus'}).then(v=>({ok:v})).catch(e=>({error:String(e)})),new Promise(ok=>setTimeout(()=>ok({timeout:true}),1800))])")
@@ -108,7 +108,7 @@ def main():
             print('PASS bundled original Proton country SVG flags, no fabricated signed-out country list')
             catalog=js("return chrome.runtime.sendMessage({type:'protonSiteRouterCountries'})")
             assert catalog['authenticated'] is False and catalog['countries']==[], catalog
-            assert 'Sign into Proton' in js("return document.querySelector('#country-source').textContent")
+            assert 'Sign into Proton within the Helper' in js("return document.querySelector('#country-source').textContent")
             alarm=js("return chrome.alarms.get('protonVpnHelperConnectionHealth')")
             assert alarm and alarm['periodInMinutes']>=1,alarm
             health=js("return chrome.runtime.sendMessage({type:'protonSiteRouterHealth'})")
@@ -129,7 +129,7 @@ def main():
             print('PASS truthful disconnected state and automatic switching off by default')
             # Delegation is OFF by default. The Helper must not be able to
             # modify split tunnelling or activate a country route yet.
-            assert 'management OFF' in js("return document.querySelector('#helper-authority').textContent")
+            assert 'permission OFF' in js("return document.querySelector('#helper-authority').textContent")
             assert js("return document.querySelector('#save-route').disabled") is True
             consent_key='protonVpnHelperManageSplitTunnelingV1'
             assert js("return chrome.storage.local.get(arguments[0]).then(v=>v[arguments[0]]===true)",consent_key) is False
@@ -188,7 +188,7 @@ def main():
             wd('POST','/url',{'url':f'chrome-extension://{EXT_ID}/helper-popup.html'})
             for _ in range(45):
                 state=js("return document.querySelector('#helper-authority')?.textContent")
-                if state and 'management allowed' in state:break
+                if state and 'routing permission enabled' in state:break
                 time.sleep(.15)
             else:raise AssertionError('Helper did not mirror original Proton delegation toggle: '+str(state))
             print('PASS Helper instantly mirrors permission from original Proton controls')
@@ -349,7 +349,7 @@ def main():
             wd('POST','/url',{'url':f'chrome-extension://{EXT_ID}/helper-popup.html'})
             for _ in range(45):
                 state=js("return document.querySelector('#helper-authority')?.textContent")
-                if state and 'management OFF' in state:break
+                if state and 'permission OFF' in state:break
                 time.sleep(.15)
             else:raise AssertionError('Helper did not reflect revoked consent')
             status=js("return chrome.runtime.sendMessage({type:'protonSiteRouterStatus'})")

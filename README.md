@@ -28,6 +28,14 @@ The helper is designed to make three things possible: save a country per website
 
 Proton's existing engine remains responsible for authentication, server eligibility, connections and browser proxy settings. This is **one modified extension**, not a second extension fighting Proton for proxy control.
 
+## Using your existing official Proton account
+
+**Signing into Proton VPN's official Brave extension does not sign the Helper in.** The two browser extensions have separate storage and authentication. Proton's official extension currently permits external messaging from the Proton account website, **not from this independent Helper extension**. The Helper therefore cannot automatically read the official account session, its subscription or its live country list, and must not attempt to copy private tokens.
+
+If you are already signed into official Proton, the Helper now says **"Helper has no Proton session. Your official Proton login is separate."** rather than incorrectly claiming your entire VPN is disconnected. If another extension controls the browser proxy, it reports that separately without asserting whose account owns it. The original Proton connection remains authoritative.
+
+An authorised integration exposed by Proton, or signing into the fork separately using Proton's user-driven account flow, is required before the Helper can actually load subscription-entitled countries or perform authenticated country routing. **Neither route has been verified for this fork.**
+
 ## Proton countries and real connection evidence
 
 The Helper now uses **Proton's own live server catalogue**, including country names and the original flag SVGs, rather than a hard-coded list of destinations. Once signed into Proton, the list reflects which countries the subscription can actually use; locked and unavailable countries are identified but cannot be selected.

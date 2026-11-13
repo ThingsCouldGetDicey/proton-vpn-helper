@@ -47,3 +47,9 @@ To demonstrate a working Proton connection after the user signs in:
 **Do not claim release readiness or production VPN protection until these pass.** Synthetic local TLS proxy tests validate PAC routing only.
 
 References: [Proton browser extension limitations](https://protonvpn.com/support/browser-extension-limitations), [Proton's external-IP verification instructions](https://protonvpn.com/support/vpn-ip-change), [country.is](https://country.is/).
+
+## Why your official Proton sign-in is not automatically discovered
+
+Your signed-in official Proton browser extension and Proton VPN Helper have different extension IDs and separate storage. The installed official Proton extension's `externally_connectable` setting allows `https://account.proton.me/*` only, with **no allowed external extension IDs**. Browser extension messaging cannot be used to access its private sign-in state. The Helper must never claim the original Proton session is absent just because **its own** session is absent.
+
+The current UI distinguishes **Helper session not linked**, **browser proxy owned by another extension**, and **Helper-connected with an unverified exit IP**. Observing another extension's proxy is not evidence of that extension's authenticated account or subscription, so do not infer those details from proxy settings. An official Proton integration API or a distinct user-approved Proton login is required for account-scoped country routing.

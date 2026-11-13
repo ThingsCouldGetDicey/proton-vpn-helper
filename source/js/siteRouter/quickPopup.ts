@@ -5,6 +5,7 @@ import type {StoredWebsiteFilterList} from '../vpn/WebsiteFilter';
 import {SPLIT_CONSENT_KEY,hasSplitConsent} from './splitConsent';
 import type {HelperCountry,HelperCountryCatalog} from './countryCatalog';
 import {AUTO_PROBE_KEY} from './healthPreferences';
+import {connectionLabel,connectionDetail} from './connectionLabels';
 
 function element<T extends HTMLElement>(id:string):T {
   const found=document.getElementById(id);
@@ -102,7 +103,7 @@ async function refreshCountries():Promise<void> {
     updateFlag(old);
     element<HTMLInputElement>('country-search').disabled=!catalog.authenticated||!catalog.countries.length;
     if(!catalog.authenticated){
-      sourceLabel('Sign into Proton to load the same countries and flags as its original server list. No destinations are assumed.');
+      sourceLabel('Sign into Proton within the Helper to load account-eligible countries. Your official extension login is separate.');
     }else if(catalog.error){
       sourceLabel('Proton catalogue unavailable: '+catalog.error);
     }else if(!catalog.entitled){
@@ -112,7 +113,7 @@ async function refreshCountries():Promise<void> {
         catalog.countries.length+' shown including unavailable/upgrade locations.');
     }
     element<HTMLInputElement>('country-search').placeholder=catalog.authenticated?
-      'Search Proton countries':'Sign in to load Proton countries';
+      'Search Proton countries':'Sign in within Helper for country list';
     drawCountryList();
   }catch {
     providerCatalog=undefined;
@@ -149,8 +150,8 @@ async function getActiveTabHost():Promise<string|undefined> {
 async function refreshConsent():Promise<void> {
   delegated=await hasSplitConsent().catch(()=>false);
   element('helper-authority').textContent=delegated
-    ? 'Helper management allowed by Proton settings. Country rules may be applied when the VPN is connected.'
-    : 'Helper management OFF. Open Proton VPN controls → Split tunnelling to give permission.';
+    ? 'Local Helper routing permission enabled. Official Proton account sign-in and connection are separate.'
+    : 'Local Helper routing permission OFF. Use All website rules to enable it.';
   element<HTMLInputElement>('auto-detect').disabled=!delegated;
   element<HTMLInputElement>('auto-retry').disabled=!delegated;
 }
@@ -161,17 +162,9 @@ async function refreshConnection():Promise<void> {
       {connected?:boolean;proxyControl?:string;proxyMode?:string;signedIn?:boolean;
         ownsProxy?:boolean;selectedCountry?:string;selectedServer?:string};
     connectionOK=data?.connected===true;
-    element('connection-details').textContent=
-      'Proton session: '+(data?.signedIn?'present':'absent')+
-      ' · Proxy: '+(data?.ownsProxy?'owned by Helper':'not verified')+
-      ' · Mode: '+(data?.proxyMode||'unknown');
+    element('connection-details').textContent=connectionDetail(data);
     element<HTMLButtonElement>('verify-exit').disabled=!connectionOK;
-    status.textContent=connectionOK
-      ? 'Proton connected'+(data.selectedCountry ? ' · '+data.selectedCountry : '')+' · exit IP not verified'
-      : data?.proxyControl==='controlled_by_other_extensions'
-        ? 'Another extension controls the proxy · routes unavailable'
-        : data?.signedIn ? 'Proton session found (not independently validated) · VPN disconnected'
-          : 'VPN disconnected · sign in through Proton VPN controls to activate routing';
+    status.textContent=connectionLabel(data);
   }catch {
     connectionOK=false;
     element('connection-details').textContent='Connection diagnostics unavailable.';
@@ -262,7 +255,7 @@ async function refreshSite():Promise<void> {
       c.code===countrySelect().value && c.available));
   saveButton().disabled=!hasEligibleSelection;
   saveButton().textContent=!providerCatalog?.authenticated
-    ? 'Sign in to load Proton countries'
+    ? 'Sign in within Helper for country list'
     : 'Save website route';
   if (currentIssue.kind==='excluded') {
     notice.classList.remove('hidden');
