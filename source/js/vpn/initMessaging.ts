@@ -11,6 +11,7 @@ import {getPartnerById} from '../account/partner/partners';
 import {delay} from '../tools/delay';
 import {getRuntime} from '../tools/getRuntime';
 import {readSiteRouterStatus, receiveSiteRouterSignal} from '../siteRouter/detector';
+import {resolveSiteSplitConflict} from '../siteRouter/resolveSplit';
 import Tab = browser.tabs.Tab;
 
 type WorkerExternalMessage = MessageBase &
@@ -43,6 +44,12 @@ export const initMessaging = () => {
 		// Dispatch our two narrow helper messages here, not from a competing
 		// runtime.onMessage listener; only the first response is delivered.
 		if (message?.type === 'protonSiteRouterStatus') return readSiteRouterStatus();
+		if (message?.type === 'protonSiteRouterResolveSplit') {
+			// Only our explicit toolbar UI may alter the user's split tunnelling list.
+			if (sender.url !== chrome.runtime.getURL('helper-popup.html'))
+				return Promise.resolve({ok:false,reason:'Unsupported sender'});
+			return resolveSiteSplitConflict(message.domain);
+		}
 		if (message?.type === 'protonSiteRouterSignal') {
 			receiveSiteRouterSignal(message, sender);
 			return undefined;

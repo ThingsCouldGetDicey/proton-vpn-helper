@@ -21,3 +21,13 @@ To verify real Chromium chooses distinct synthetic HTTPS proxy endpoints (no Pro
     python3 tests/pac_transport_integration.py
 
 ChromeDriver, Chromium, OpenSSL, Python requests and the Node dependencies are required. See [synthetic transport tests](ROUTING_TESTS.md).
+
+To verify the new toolbar UI, installed icon/keyboard shortcut, neutral country badges, live exclusion conversion, include-only behaviour and navigation back to original Proton controls in a real isolated Chromium browser:
+
+    python3 -u tests/toolbar_integration.py
+
+For an up-to-date authentic toolbar screenshot:
+
+    TOOLBAR_SCREENSHOT_PATH=docs/images/toolbar-current-site.png python3 -u tests/toolbar_integration.py
+
+Chrome/Brave decides which extension icons are pinned; the extension cannot pin itself. Users pin it through the browser Extensions menu and can customise keyboard shortcuts from the browser's extension shortcut settings.

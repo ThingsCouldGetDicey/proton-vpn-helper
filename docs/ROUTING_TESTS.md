@@ -38,3 +38,7 @@ The synthetic endpoints are **not Proton VPN servers**. The country labels are t
 - User-selected split-tunnelling Include/Exclude rules retain their intended precedence.
 
 Do not use the experimental profile for sensitive browsing or submit the extension to a marketplace until these checks are recorded with real evidence. The project tracks release blockers in [the marketplace checklist](STORE_READINESS.md).
+
+## Toolbar and split-tunnel interaction tests
+
+Run `python3 tests/toolbar_integration.py`. Isolated Chromium verifies the toolbar action and keyboard shortcut are registered, a saved two-letter country rule produces a neutral tab badge, that disconnected VPN status remains visible, exact Exclude and Include-only rules can be updated on explicit user click, broad parent exclusions are never silently removed, and the original Proton controls remain accessible. No live Proton account session is used.

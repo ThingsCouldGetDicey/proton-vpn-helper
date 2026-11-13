@@ -38,3 +38,9 @@ The fork optionally syncs local site policy via the native messaging host com.lo
     SHORT_QA=1 python3 tests/browser_integration.py
 
 Authenticated live Proton sign-in, network fail-closed and IP/DNS/WebRTC leak tests remain release blockers.
+
+## Toolbar shortcut
+
+The one-extension toolbar action opens a compact per-website country picker. **Alt+Shift+Y** is the suggested keyboard shortcut. The original Proton popup is available through **Proton VPN controls**, and the advanced routing editor through **All website rules**. Pin the icon with your browser's Extensions menu; Chromium does not permit extensions to force themselves into the pinned toolbar.
+
+The shortcut checks existing Proton split tunnelling: one explicit click can remove an exact exclusion or include an exact site in Include-only mode before recording the chosen country. Broad exclusions remain unchanged and require review. Saved rule badges are neutral; only actual VPN/session checks may claim the connection is active.
