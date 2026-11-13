@@ -26,13 +26,13 @@ Official Proton extension is UNCHANGED (ID jplgfhpmjnbigmhklmmbgecoobifkmpa).
 
 ## All-in-one option (experimental)
 
-The branch feature/all-in-one-site-router combines Proton's connection engine and an internal controller in **one browser extension**. There is no second extension to install. The controller detects region blocks, saves per-website country rules and asks the Proton state manager to update the proxy. Proton remains responsible for all authentication, eligible server selection, VPN routing and connections.
+The single-extension design combines Proton's connection engine and an internal controller in **one browser extension**. There is no second extension to install. The controller detects region blocks, saves per-website country rules and asks the Proton state manager to update the proxy. Proton remains responsible for all authentication, eligible server selection, VPN routing and connections.
 
 This option is a **separately built GPLv3 derivative** of Proton VPN, not an add-on to the unmodified official store extension. It has its own extension ID, does not inherit the official Proton login session, and is not guaranteed to authenticate successfully until tested live. Do not load two proxy-controlling VPN extensions at the same time.
 
 MCP native messaging remains optional for local policy updates and development. Automatic retries default off until the user explicitly enables them in Options.
 
-The other branch feature/site-country-router continues to support the two-extension, companion-plus-provider design. Both source branches remain separate.
+The former two-extension design was retired. The current source includes the helper inside one Proton-derived browser extension.
 
 ## Installation — NOT PERFORMED
 

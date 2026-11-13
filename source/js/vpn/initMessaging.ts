@@ -10,6 +10,7 @@ import {executeOnTab} from '../tools/executeOnTab';
 import {getPartnerById} from '../account/partner/partners';
 import {delay} from '../tools/delay';
 import {getRuntime} from '../tools/getRuntime';
+import {readSiteRouterStatus, receiveSiteRouterSignal} from '../siteRouter/detector';
 import Tab = browser.tabs.Tab;
 
 type WorkerExternalMessage = MessageBase &
@@ -38,7 +39,14 @@ const getMessageResponse = async (message: any) => {
 export const initMessaging = () => {
 	const runtime = getRuntime();
 
-	runtime?.onMessage.addListener((message: any) => {
+	runtime?.onMessage.addListener((message: any, sender) => {
+		// Dispatch our two narrow helper messages here, not from a competing
+		// runtime.onMessage listener; only the first response is delivered.
+		if (message?.type === 'protonSiteRouterStatus') return readSiteRouterStatus();
+		if (message?.type === 'protonSiteRouterSignal') {
+			receiveSiteRouterSignal(message, sender);
+			return undefined;
+		}
 		// eslint-disable-next-line no-async-promise-executor
 		const promise = new Promise(async (resolve) => {
 			const result = await getMessageResponse(message);

@@ -17,7 +17,7 @@ One **unpacked browser extension** rather than installing a separate companion/c
 
 ## Build
 
-Use the consolidated release preparation branch in this project.
+Use the main branch for published source, or an explicit development branch for experimental changes.
 
     npm ci --ignore-scripts --no-audit --no-fund
     npx tsc --noEmit
@@ -25,7 +25,7 @@ Use the consolidated release preparation branch in this project.
 
 Load the built distribution/ folder into an **isolated Chromium profile** using its Extensions page -> Developer mode -> Load unpacked. A ZIP is included in release/ for transport; extract it before Load unpacked. Neither install nor activation was performed on your normal browsers.
 
-The separate companion extension remains in its own repository as a future candidate for an official Proton-supported integration, but it is not part of this single-extension build.
+There is one active consolidated repository. The earlier two-extension companion prototype was retired.
 
 ## MCP
 

@@ -15,3 +15,9 @@ Run from this checkout's root:
 For optional local policy control, run python3 native/route_ctl.py --help. The native host must be registered separately using python3 native/install_host.py.
 
 These checks do not demonstrate compatibility with Proton's live sign-in, multi-country exit routing or leak isolation.
+
+To verify real Chromium chooses distinct synthetic HTTPS proxy endpoints (no Proton credentials or external browsing):
+
+    python3 tests/pac_transport_integration.py
+
+ChromeDriver, Chromium, OpenSSL, Python requests and the Node dependencies are required. See [synthetic transport tests](ROUTING_TESTS.md).

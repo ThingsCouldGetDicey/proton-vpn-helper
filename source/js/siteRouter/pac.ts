@@ -4,6 +4,11 @@ export interface PacRoute {
 	rule: SiteRule;
 	endpoint?: {host: string; port: number};
 }
+/** Honor the existing Proton Include/Exclude split-tunnelling policy
+ * BEFORE any per-site country override. Excluded sites intentionally stay DIRECT. */
+export function siteRouteBypassGuard(includeCondition: string): string {
+	return includeCondition === 'true' ? '' : '!(' + includeCondition + ')';
+}
 export function buildRoutePacCases(routes: readonly PacRoute[],
 	scheme: 'http' | 'https', exclusion: string): string {
 	if (!routes.length) return '';

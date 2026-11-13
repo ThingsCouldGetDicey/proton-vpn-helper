@@ -1,5 +1,5 @@
 import * as assert from 'node:assert/strict';
-import {buildRoutePacCases} from '../source/js/siteRouter/pac';
+import {buildRoutePacCases, siteRouteBypassGuard} from '../source/js/siteRouter/pac';
 import {classifyBlock, DEFAULT_POLICY, findRule, normalizeDomain, validatePolicy} from '../source/js/siteRouter/policy';
 
 function test(name: string, cb: () => void) {
@@ -70,4 +70,25 @@ test('PAC routes by country without fallback to DIRECT', () => {
 test('privacy-sensitive page reading and automatic routing are opt-in', () => {
 	assert.equal(DEFAULT_POLICY.autoDetect, false);
 	assert.equal(DEFAULT_POLICY.autoRetry, false);
+	assert.equal(validatePolicy({rules: []}).autoDetect, false);
+	assert.equal(validatePolicy({rules: []}).autoRetry, false);
+});
+
+test('include-only split tunnelling takes precedence over country routes', () => {
+	const p=validatePolicy({rules:[
+		{domain:'included.example.org',country:'CH',subdomains:true},
+		{domain:'excluded.example.org',country:'NL',subdomains:true},
+	]});
+	const routes=[
+		{rule:p.rules[0]!,endpoint:{host:'ch.proton.example',port:4443}},
+		{rule:p.rules[1]!,endpoint:{host:'nl.proton.example',port:4443}},
+	];
+	const only='host === "included.example.org" || host.endsWith(".included.example.org")';
+	const pac=buildRoutePacCases(routes,'https',siteRouteBypassGuard(only));
+	const evaluate=new Function('host',pac+'\nreturn "DIRECT";') as (host:string)=>string;
+	assert.equal(evaluate('included.example.org'),'HTTPS ch.proton.example:4443');
+	assert.equal(evaluate('sub.included.example.org'),'HTTPS ch.proton.example:4443');
+	assert.equal(evaluate('excluded.example.org'),'DIRECT');
+	assert.equal(siteRouteBypassGuard('true'),'');
+	assert.equal(siteRouteBypassGuard('false'),'!(false)');
 });

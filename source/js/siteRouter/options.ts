@@ -27,7 +27,8 @@ function render(policy: SiteRouterPolicy): void {
 	(byId<HTMLInputElement>('autoDetect')).checked = policy.autoDetect;
 	(byId<HTMLInputElement>('autoRetry')).checked = policy.autoRetry;
 	(byId<HTMLInputElement>('candidates')).value = policy.candidates.join(', ');
-	byId('connection-status').textContent = policy.enabled ? 'Routing policy enabled' : 'Routing policy paused';
+	byId('connection-status').textContent = 'Checking VPN connection…';
+	void refreshVpnStatus();
 	const list = byId('rule-list');
 	list.innerHTML = policy.rules.length ? policy.rules
 		.slice().sort((a, b) => a.domain.localeCompare(b.domain))
@@ -45,6 +46,31 @@ function render(policy: SiteRouterPolicy): void {
 	void chrome.runtime.sendMessage({type: 'protonSiteRouterStatus'}).then((data?: {unavailable?: number}) => {
 		if (data && Number.isInteger(data.unavailable)) status.textContent = String(data.unavailable);
 	}).catch(() => {status.textContent = '—';});
+}
+interface VpnStatus {
+	connected?: boolean;
+	ownsProxy?: boolean;
+	proxyControl?: string;
+	unavailable?: number;
+	configured?: number;
+}
+async function refreshVpnStatus(): Promise<void> {
+	const status = byId('connection-status');
+	try {
+		const info = await chrome.runtime.sendMessage({type:'protonSiteRouterStatus'}) as VpnStatus;
+		if (!info?.connected) {
+			status.textContent = info?.proxyControl === 'controlled_by_other_extensions'
+				? 'Proxy controlled by another extension — routing unavailable'
+				: 'VPN disconnected — country routes not active';
+		} else {
+			const p = await fetchPolicy();
+			status.textContent = !p.enabled
+				? 'VPN connection reported · site rules paused'
+				: 'VPN connection reported · exit IP not verified';
+		}
+	} catch {
+		status.textContent = 'VPN state unavailable — protection not confirmed';
+	}
 }
 async function setup() {
 	render(await fetchPolicy());
@@ -91,6 +117,8 @@ async function setup() {
 			chrome.runtime.reload();
 		}
 	});
+	// A policy toggle must never make the interface claim the VPN is connected.
+	setInterval(() => {void refreshVpnStatus();}, 6000);
 	chrome.storage.onChanged.addListener((changes, area) => {
 		if (area === 'local' && changes[STORE_KEY]) {
 			render(validatePolicy(changes[STORE_KEY].newValue));

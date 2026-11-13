@@ -115,6 +115,48 @@ async function handleSignal(tabId: number, host: string, pageUrl: string,
 	try {await tryNextCountry(tabId, next);}
 	finally {next.inFlight = false;}
 }
+/** Internal status handler, called by Proton's existing single message dispatcher.
+ * A stored rule is not proof that the browser currently uses Proton.
+ */
+export async function readSiteRouterStatus(): Promise<{
+	connected: boolean; ownsProxy: boolean; proxyControl: string;
+	unavailable: number; configured: number;
+}> {
+	const routes = getActiveRoutes();
+	try {
+		const settings = await new Promise<{levelOfControl?: string}>(
+			(resolve) => chrome.proxy.settings.get({incognito: false}, resolve));
+		const proxyControl = settings?.levelOfControl || 'unknown';
+		const ownsProxy = proxyControl === 'controlled_by_this_extension';
+		const vpn = getCurrentStateIfDefined();
+		const connected = ownsProxy && vpn?.name === 'on' && vpn.proxyEnabled === true;
+		return {connected, ownsProxy, proxyControl,
+			unavailable: routes.filter((r) => !r.endpoint).length,
+			configured: connected ? routes.filter((r) => !!r.endpoint).length : 0};
+	} catch {
+		return {connected: false, ownsProxy: false, proxyControl: 'unknown',
+			unavailable: routes.length, configured: 0};
+	}
+}
+
+/** Called exclusively from the main internal message listener.
+ * Never trust hostnames sent by a content script; use the sender's URL.
+ */
+export function receiveSiteRouterSignal(message: any, sender: browser.runtime.MessageSender): void {
+	if (sender.frameId !== 0 || sender.tab?.id === undefined ||
+		typeof sender.url !== 'string') return;
+	let url: URL;
+	try {url = new URL(sender.url);} catch {return;}
+	if (!['http:', 'https:'].includes(url.protocol)) return;
+	const signal: BlockSignal =
+		message.signal === 'region' || message.signal === 'age'
+			? message.signal : message.signal === 'none' ? 'none' : 'unknown';
+	const len = Number.isInteger(message.contentLength)
+		? Math.max(0, Math.min(message.contentLength, 22000)) : 0;
+	void handleSignal(sender.tab.id, url.hostname.toLowerCase(), sender.url, signal, len)
+		.catch((e) => console.warn('[site-router] detection failure', e));
+}
+
 export function installSiteRouterDetector(): void {
 	chrome.storage.onChanged.addListener((changes, area) => {
 		if (area === 'local' && changes[STORE_KEY] && internalPolicyUpdateDepth === 0) {
@@ -132,27 +174,6 @@ export function installSiteRouterDetector(): void {
 			}
 		} catch { /* invalid URL */ }
 	}, {urls: ['http://*/*', 'https://*/*'], types: ['main_frame']});
-	chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse) => {
-		if (message?.type !== 'protonSiteRouterStatus') return;
-		const routes = getActiveRoutes();
-		sendResponse({unavailable: routes.filter((r) => !r.endpoint).length});
-		return false;
-	});
-	chrome.runtime.onMessage.addListener((message: any, sender) => {
-		if (!message || message.type !== 'protonSiteRouterSignal' ||
-			sender.frameId !== 0 || sender.tab?.id === undefined ||
-			typeof sender.url !== 'string') return;
-		let url: URL;
-		try {url = new URL(sender.url);} catch {return;}
-		if (!['http:', 'https:'].includes(url.protocol)) return;
-		const signal: BlockSignal =
-			message.signal === 'region' || message.signal === 'age'
-				? message.signal : message.signal === 'none' ? 'none' : 'unknown';
-		const len = Number.isInteger(message.contentLength)
-			? Math.max(0, Math.min(message.contentLength, 22000)) : 0;
-		void handleSignal(sender.tab.id, url.hostname.toLowerCase(), sender.url, signal, len)
-			.catch((e) => console.warn('[site-router] detection failure', e));
-	});
 	chrome.tabs.onRemoved.addListener((tabId) => {
 		const attempt = attempts.get(tabId);
 		if (attempt) ownerByHost.delete(attempt.host);
