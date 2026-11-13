@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict';
 import {buildRoutePacCases, siteRouteBypassGuard} from '../source/js/siteRouter/pac';
 import {evaluateSiteSplitConflict} from '../source/js/siteRouter/splitConflict';
 import {SplitTunnelingMode} from '../source/js/vpn/WebsiteFilter';
+import {helperMayRoute} from '../source/js/siteRouter/consentGate';
 import {classifyBlock, DEFAULT_POLICY, findRule, normalizeDomain, validatePolicy} from '../source/js/siteRouter/policy';
 
 function test(name: string, cb: () => void) {
@@ -116,4 +117,11 @@ test('toolbar identifies include-only sites and leaves included sites unchanged'
   const candidate=evaluateSiteSplitConflict('other.example.net',list);
   assert.equal(candidate.kind,'include-only');
   assert.equal(candidate.canResolve,true);
+});
+
+test('Helper delegation denies routing until explicitly enabled in Proton settings', () => {
+  assert.equal(helperMayRoute(false,true),false);
+  assert.equal(helperMayRoute(true,false),false);
+  assert.equal(helperMayRoute(false,false),false);
+  assert.equal(helperMayRoute(true,true),true);
 });

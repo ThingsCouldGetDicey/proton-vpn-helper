@@ -83,6 +83,38 @@ def main():
             assert js("return document.querySelector('#auto-detect').checked") is False
             assert js("return document.querySelector('#auto-retry').checked") is False
             print('PASS truthful disconnected state and automatic switching off by default')
+            # Delegation is OFF by default. The Helper must not be able to
+            # modify split tunnelling or activate a country route yet.
+            assert 'management OFF' in js("return document.querySelector('#helper-authority').textContent")
+            assert js("return document.querySelector('#save-route').disabled") is True
+            consent_key='protonVpnHelperManageSplitTunnelingV1'
+            assert js("return chrome.storage.local.get(arguments[0]).then(v=>v[arguments[0]]===true)",consent_key) is False
+            print('PASS without explicit Proton consent, the Helper cannot save a new country route')
+            denied=js("return chrome.runtime.sendMessage({type:'protonSiteRouterResolveSplit',domain:'sample.example.com'})")
+            assert denied['ok'] is False and 'Grant Helper management' in denied['reason'],denied
+            print('PASS backend rejects direct split-list mutation messages without consent')
+            # Grant only from original Proton split-tunnelling settings UI.
+            wd('POST','/url',{'url':f'chrome-extension://{EXT_ID}/popup.html'})
+            for _ in range(60):
+                if js("return !!document.querySelector('#helper-manage-split')"):break
+                time.sleep(.15)
+            else:raise AssertionError('No consent switch in original Proton Split tunnelling panel')
+            assert js("return document.querySelector('#helper-manage-split').checked") is False
+            js("document.querySelector('#helper-manage-split').click();return true;")
+            for _ in range(45):
+                active=js("return chrome.storage.local.get(arguments[0]).then(v=>v[arguments[0]]===true)",consent_key)
+                if active:break
+                time.sleep(.15)
+            else:raise AssertionError('Original Proton toggle did not grant consent')
+            assert js("return document.querySelector('[data-page=\"split-tunneling\"]').classList.contains('helper-split-delegated')") is True
+            print('PASS original Proton split-tunnelling settings grants explicit Helper delegation')
+            wd('POST','/url',{'url':f'chrome-extension://{EXT_ID}/helper-popup.html'})
+            for _ in range(45):
+                state=js("return document.querySelector('#helper-authority')?.textContent")
+                if state and 'management allowed' in state:break
+                time.sleep(.15)
+            else:raise AssertionError('Helper did not mirror original Proton delegation toggle: '+str(state))
+            print('PASS Helper instantly mirrors permission from original Proton controls')
             def enter(host,country='CH'):
                 js("""const host=document.querySelector('#site-host');
                     host.value=arguments[0];
@@ -107,6 +139,18 @@ def main():
             js("document.querySelector('#save-route').click();return true;")
             await_rule('sample.example.com','CH')
             print('PASS toolbar shortcut saves a Swiss country preference for a website')
+            wd('POST','/url',{'url':f'chrome-extension://{EXT_ID}/popup.html'})
+            for _ in range(50):
+                text=js("return document.querySelector('#helper-delegation-status')?.textContent")
+                if text and '1 website country rule saved' in text: break
+                time.sleep(.15)
+            else:raise AssertionError('Original Proton split page did not mirror saved Helper country rule: '+str(text))
+            assert js("return document.querySelector('#helper-manage-split').checked") is True
+            print('PASS original Proton split settings mirror newly saved Helper website rules')
+            wd('POST','/url',{'url':f'chrome-extension://{EXT_ID}/helper-popup.html'})
+            for _ in range(30):
+                if js("return !!document.querySelector('#save-route')"):break
+                time.sleep(.15)
             target=js("return chrome.tabs.create({url:'https://sample.example.com/badge-test'})")
             assert target.get('id'),target
             for _ in range(45):
@@ -209,6 +253,37 @@ def main():
                 time.sleep(.15)
             else: raise AssertionError('Original Proton control popup not opened')
             print('PASS original Proton VPN connection controls open from shortcut')
+            # Revocation happens on the original Proton settings page. Any
+            # previously saved preference persists but cannot route traffic.
+            wd('POST','/url',{'url':f'chrome-extension://{EXT_ID}/popup.html'})
+            for _ in range(35):
+                if js("return !!document.querySelector('#helper-manage-split')"):break
+                time.sleep(.15)
+            assert js("return document.querySelector('#helper-manage-split').checked") is True
+            js("document.querySelector('#helper-manage-split').click();return true;")
+            for _ in range(45):
+                value=js("return chrome.storage.local.get(arguments[0]).then(v=>v[arguments[0]])",consent_key)
+                if value is False:break
+                time.sleep(.15)
+            else:raise AssertionError('Revocation did not persist')
+            assert js("return document.querySelector('[data-page=\"split-tunneling\"]').classList.contains('helper-split-delegated')") is False
+            wd('POST','/url',{'url':f'chrome-extension://{EXT_ID}/helper-popup.html'})
+            for _ in range(45):
+                state=js("return document.querySelector('#helper-authority')?.textContent")
+                if state and 'management OFF' in state:break
+                time.sleep(.15)
+            else:raise AssertionError('Helper did not reflect revoked consent')
+            status=js("return chrome.runtime.sendMessage({type:'protonSiteRouterStatus'})")
+            assert status['delegated'] is False and status['configured']==0,status
+            assert js("return document.querySelector('#auto-detect').disabled") is True
+            await_badge=None
+            for _ in range(35):
+                await_badge=js("return chrome.action.getBadgeText({tabId:arguments[0]})",target['id'])
+                if await_badge=='!':break
+                time.sleep(.18)
+            else:raise AssertionError('Revoked Helper country preference not marked inactive: '+str(await_badge))
+            print('PASS revoking delegation marks saved toolbar country badges inactive')
+            print('PASS revoking delegation restores Proton rules and prevents Helper routing/automation')
         finally:
             if sid:
                 try:requests.delete(BASE+'/session/'+sid,timeout=6)

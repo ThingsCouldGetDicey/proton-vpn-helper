@@ -2,6 +2,7 @@ import {DEFAULT_POLICY, STORE_KEY, normalizeCountry, normalizeDomain, findRule,
   validatePolicy, type SiteRouterPolicy} from './policy';
 import {evaluateSiteSplitConflict, type SiteSplitConflict} from './splitConflict';
 import type {StoredWebsiteFilterList} from '../vpn/WebsiteFilter';
+import {SPLIT_CONSENT_KEY,hasSplitConsent} from './splitConsent';
 
 function element<T extends HTMLElement>(id:string):T {
   const found=document.getElementById(id);
@@ -14,6 +15,7 @@ const saveButton=()=>element<HTMLButtonElement>('save-route');
 const removeButton=()=>element<HTMLButtonElement>('remove-route');
 const splitNotice=()=>element<HTMLParagraphElement>('split-notice');
 let connectionOK=false;
+let delegated=false;
 let currentIssue:SiteSplitConflict={kind:'none',canResolve:false};
 let updateSequence=0;
 
@@ -47,17 +49,26 @@ async function getActiveTabHost():Promise<string|undefined> {
     return normalizeDomain(url.hostname);
   }catch{return undefined;}
 }
+async function refreshConsent():Promise<void> {
+  delegated=await hasSplitConsent().catch(()=>false);
+  element('helper-authority').textContent=delegated
+    ? 'Helper management allowed by Proton settings. Country rules may be applied when the VPN is connected.'
+    : 'Helper management OFF. Open Proton VPN controls → Split tunnelling to give permission.';
+  element<HTMLInputElement>('auto-detect').disabled=!delegated;
+  element<HTMLInputElement>('auto-retry').disabled=!delegated;
+}
 async function refreshConnection():Promise<void> {
   const status=element('vpn-status');
   try {
     const data=await chrome.runtime.sendMessage({type:'protonSiteRouterStatus'}) as
-      {connected?:boolean;proxyControl?:string};
+      {connected?:boolean;proxyControl?:string;signedIn?:boolean;selectedCountry?:string;selectedServer?:string};
     connectionOK=data?.connected===true;
     status.textContent=connectionOK
-      ? 'VPN connection reported · actual exit IP not verified'
+      ? 'Proton connected'+(data.selectedCountry ? ' · '+data.selectedCountry : '')+' · exit IP not verified'
       : data?.proxyControl==='controlled_by_other_extensions'
         ? 'Another extension controls the proxy · routes unavailable'
-        : 'VPN disconnected · saved website rules are inactive';
+        : data?.signedIn ? 'Proton account signed in · VPN disconnected · saved routes inactive'
+          : 'VPN disconnected · sign in through Proton VPN controls to activate routing';
   }catch {
     connectionOK=false;
     status.textContent='VPN connection cannot be verified · do not rely on routing';
@@ -72,6 +83,17 @@ async function refreshSite():Promise<void> {
   const notice=splitNotice();
   notice.classList.add('hidden');
   currentIssue={kind:'none',canResolve:false};
+  if (!delegated && host) {
+    const existing=findRule(host,policy.rules);
+    countrySelect().value=existing?.country||'';
+    element<HTMLInputElement>('subdomains').checked=existing?.subdomains!==false;
+    element<HTMLInputElement>('auto-detect').checked=policy.autoDetect;
+    element<HTMLInputElement>('auto-retry').checked=policy.autoRetry;
+    saveButton().disabled=true;
+    saveButton().textContent='Enable Helper in Proton settings first';
+    removeButton().disabled=!existing;
+    return;
+  }
   if (!host) {
     saveButton().disabled=true;
     saveButton().textContent='Enter a valid public website';
@@ -115,6 +137,10 @@ async function save():Promise<void> {
   // Re-evaluate the exact hostname at click time. Manual edits must not reuse
   // the split-tunnelling assessment from a previously selected website.
   const issue = evaluateSiteSplitConflict(host,await splitConfig());
+  if (!await hasSplitConsent()) {
+    feedback('First enable “Allow Proton VPN Helper to manage split tunnelling” in Proton controls → Split tunnelling.',true);
+    return;
+  }
   if (issue.kind!=='none'&&!issue.canResolve){
     feedback('Edit the parent-domain exclusion in Proton controls first.',true);
     return;
@@ -166,7 +192,10 @@ async function updateAutomation(what:'autoDetect'|'autoRetry',enabled:boolean):P
 async function init():Promise<void>{
   const current=await getActiveTabHost();
   if (current) hostInput().value=current;
-  await Promise.all([refreshConnection(),refreshSite()]);
+  await Promise.all([refreshConnection(),refreshConsent()]);
+  await refreshSite();
+  // Read Proton's live connection state; do not claim a saved rule equals a VPN.
+  setInterval(()=>{void refreshConnection();},3500);
   hostInput().addEventListener('change',()=>{feedback('');void refreshSite();});
   hostInput().addEventListener('input',()=>{void refreshSite();});
   countrySelect().addEventListener('change',()=>{feedback('');});
@@ -186,7 +215,9 @@ async function init():Promise<void>{
       .catch(e=>feedback(String(e),true));
   });
   chrome.storage.onChanged.addListener((changes,area)=>{
-    if(area==='local'&&(changes[STORE_KEY]||changes['bex-split-tunneling']))void refreshSite();
+    if(area==='local'&&changes[SPLIT_CONSENT_KEY]){
+      void refreshConsent().then(refreshSite);
+    } else if(area==='local'&&(changes[STORE_KEY]||changes['bex-split-tunneling'])) void refreshSite();
   });
 }
 void init().catch(error=>feedback('Could not load shortcut: '+String(error),true));

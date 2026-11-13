@@ -6,20 +6,6 @@ An independent, open-source modification of [Proton VPN's browser extension](htt
 
 > **Developer preview — not ready for everyday VPN use.** The settings interface, saved rules and local policy sync have passed automated browser tests. Signing in to Proton with this modified extension, routing real traffic through different countries, and preventing network leaks have **not** been verified. Do not replace your trusted VPN setup with this build yet.
 
-## The toolbar shortcut (developer preview)
-
-![Real Chromium screenshot of the Proton VPN Helper toolbar popup. The current site is assigned Switzerland; the VPN is explicitly shown disconnected. Original Proton controls remain available in the bottom bar.](docs/images/toolbar-current-site.png)
-
-*Real Chromium screenshot, not a mock-up or proof of a Swiss exit IP.*
-
-For a website you are viewing, click the **Proton VPN Helper** icon in your browser toolbar (pin it through the Extensions/puzzle-piece menu if hidden), or use **Alt+Shift+Y**. If the shortcut conflicts with another extension, change it under `brave://extensions/shortcuts` or `chrome://extensions/shortcuts`.
-
-The popup reads the current website automatically and lets you choose a country. **Save website route** remembers the choice; **Remove country preference** returns to your existing Proton routing settings. **Proton VPN controls** opens the original connection and split-tunnelling interface, while **All website rules** opens the full rule manager.
-
-If Proton already **excludes** the exact website, the save button explicitly offers to move it into VPN country routing in the same click. It does **not** delete broader parent-domain exclusions, which may affect other websites. If Proton uses **Include-only** mode, the button can add the exact site to that mode when you save a country. Automatic block detection and country retry require separate opt-in.
-
-**Important:** Saving a country rule does not reconnect a disconnected VPN, inherit your official extension's login, or guarantee the country of the resulting traffic. An available server and authenticated live VPN must still be verified.
-
 ## The problem
 
 Imagine you normally use a UK VPN server, but one website is only available through a Netherlands exit and another works best through Switzerland.
@@ -42,6 +28,24 @@ The helper is designed to make three things possible: save a country per website
 
 Proton's existing engine remains responsible for authentication, server eligibility, connections and browser proxy settings. This is **one modified extension**, not a second extension fighting Proton for proxy control.
 
+## The toolbar shortcut (developer preview)
+
+![Real Chromium screenshot of the Proton VPN Helper toolbar popup. The current site is assigned Switzerland; the VPN is explicitly shown disconnected. Original Proton controls remain available in the bottom bar.](docs/images/toolbar-current-site.png)
+
+*Real Chromium screenshot, not a mock-up or proof of a Swiss exit IP.*
+
+**First-time setup — give permission in the Proton controls:** Open **Proton VPN controls → Settings → Split tunnelling** and turn on **Allow Proton VPN Helper to manage split tunnelling**. This starts **off** and is a local, reversible permission: without it the Helper cannot change split-tunnelling exceptions, apply per-site country routing or retry countries automatically. The original Proton page and Helper mirror permission and rule changes in both directions. [Consent and Proton account walkthrough](docs/CONSENT_AND_ACCOUNT.md).
+
+This consent **does not sign into Proton or share the official extension's private account session**. Use Proton's own account sign-in within the unofficial combined extension; authentication with its independent extension ID is still unverified.
+
+For a website you are viewing, click the **Proton VPN Helper** icon in your browser toolbar (pin it through the Extensions/puzzle-piece menu if hidden), or use **Alt+Shift+Y**. If the shortcut conflicts with another extension, change it under `brave://extensions/shortcuts` or `chrome://extensions/shortcuts`.
+
+The popup reads the current website automatically and lets you choose a country. **Save website route** remembers the choice; **Remove country preference** returns to your existing Proton routing settings. **Proton VPN controls** opens the original connection and split-tunnelling interface, while **All website rules** opens the full rule manager.
+
+If Proton already **excludes** the exact website, the save button explicitly offers to move it into VPN country routing in the same click. It does **not** delete broader parent-domain exclusions, which may affect other websites. If Proton uses **Include-only** mode, the button can add the exact site to that mode when you save a country. Automatic block detection and country retry require separate opt-in.
+
+**Important:** Saving a country rule does not reconnect a disconnected VPN, inherit your official extension's login, or guarantee the country of the resulting traffic. An available server and authenticated live VPN must still be verified.
+
 ## Try the working settings interface
 
 **For developers and testers only.** Use a disposable Chromium browser profile, **not** the profile where you rely on the official Proton extension.
@@ -56,7 +60,8 @@ Proton's existing engine remains responsible for authentication, server eligibil
    ```
 
 2. Open a **separate test profile** in Chrome, Brave, Chromium or Vivaldi. Visit its Extensions page (`chrome://extensions`, `brave://extensions` or `vivaldi://extensions`). Enable **Developer mode**, choose **Load unpacked**, and select this project's `distribution/` folder. Do not run two VPN extensions that control the proxy in the same profile.
-3. Use the toolbar icon or **Alt+Shift+Y** while viewing a website. Select a country and save. If the website has a conflicting Proton split-tunnelling rule, the popup explains the required change. For all saved routes and additional options, choose **All website rules** in the popup.
+3. In the Helper toolbar, choose **Proton VPN controls → Settings → Split tunnelling** and explicitly enable **Allow Proton VPN Helper to manage split tunnelling**. This is a local permission, not a Proton account login.
+4. Return to the Helper toolbar or press **Alt+Shift+Y** while viewing a website. Select a country and save. The popup explains conflicting Proton split-tunnelling rules; **All website rules** opens the advanced editor.
 
 These steps demonstrate **saving and managing preferences**. They do not prove that the modified extension can log in to Proton or route network traffic safely. Do not enable automatic switching for real browsing until the remaining checks are complete.
 

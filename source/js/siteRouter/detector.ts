@@ -1,7 +1,10 @@
 'use background';
 import {classifyBlock, type BlockSignal, type SiteRule, STORE_KEY, findRule} from './policy';
-import {loadRouterPolicy, saveRouterPolicy, getActiveRoutes} from './runtime';
+import {loadRouterPolicy, saveRouterPolicy, getActiveRoutes,
+	updateSplitDelegation, hasActiveSplitDelegation} from './runtime';
+import {SPLIT_CONSENT_KEY, hasSplitConsent} from './splitConsent';
 import {getCurrentStateIfDefined} from '../state';
+import {readSession} from '../account/readSession';
 
 interface Attempt {
 	host: string;
@@ -68,7 +71,7 @@ async function handleSignal(tabId: number, host: string, pageUrl: string,
 	const vpnState = getCurrentStateIfDefined();
 	// Never run auto retries while the VPN is disconnected. Otherwise a saved
 	// trial could appear valid even though the browser is not using Proton.
-	if (vpnState?.name !== 'on' || !vpnState.proxyEnabled || !p.enabled || !p.autoDetect) return;
+	if (!hasActiveSplitDelegation() || vpnState?.name !== 'on' || !vpnState.proxyEnabled || !p.enabled || !p.autoDetect) return;
 	const status = lastHttpStatus.get(tabId);
 	const attempt = attempts.get(tabId);
 	if (attempt?.host === host) {
@@ -119,10 +122,14 @@ async function handleSignal(tabId: number, host: string, pageUrl: string,
  * A stored rule is not proof that the browser currently uses Proton.
  */
 export async function readSiteRouterStatus(): Promise<{
-	connected: boolean; ownsProxy: boolean; proxyControl: string;
+	connected: boolean; ownsProxy: boolean; proxyControl: string; delegated: boolean;
+	signedIn: boolean;
+	selectedCountry?: string; selectedServer?: string;
 	unavailable: number; configured: number;
 }> {
 	const routes = getActiveRoutes();
+	// Only a yes/no account state is mirrored, never Proton tokens or UIDs.
+	const signedIn = Boolean((await readSession().catch(()=>undefined))?.uid);
 	try {
 		const settings = await new Promise<{levelOfControl?: string}>(
 			(resolve) => chrome.proxy.settings.get({incognito: false}, resolve));
@@ -130,11 +137,14 @@ export async function readSiteRouterStatus(): Promise<{
 		const ownsProxy = proxyControl === 'controlled_by_this_extension';
 		const vpn = getCurrentStateIfDefined();
 		const connected = ownsProxy && vpn?.name === 'on' && vpn.proxyEnabled === true;
-		return {connected, ownsProxy, proxyControl,
+		return {connected, ownsProxy, proxyControl, signedIn, delegated:hasActiveSplitDelegation(),
+			...(connected&&vpn?.data?.server?{selectedCountry:vpn.data.server.exitCountry,
+				selectedServer:vpn.data.server.name}:{}),
 			unavailable: routes.filter((r) => !r.endpoint).length,
-			configured: connected ? routes.filter((r) => !!r.endpoint).length : 0};
+			configured: connected && hasActiveSplitDelegation() ? routes.filter((r) => !!r.endpoint).length : 0};
 	} catch {
-		return {connected: false, ownsProxy: false, proxyControl: 'unknown',
+		return {connected: false, ownsProxy: false, signedIn, proxyControl: 'unknown',
+			delegated:hasActiveSplitDelegation(),
 			unavailable: routes.length, configured: 0};
 	}
 }
@@ -158,7 +168,17 @@ export function receiveSiteRouterSignal(message: any, sender: browser.runtime.Me
 }
 
 export function installSiteRouterDetector(): void {
+	// Permission is stored in extension-local settings and always starts off.
+	void hasSplitConsent().then(allowed=>{
+		updateSplitDelegation(allowed);
+		if(allowed) void reconfigure().catch(()=>undefined);
+	}).catch(()=>updateSplitDelegation(false));
 	chrome.storage.onChanged.addListener((changes, area) => {
+		if(area==='local'&&changes[SPLIT_CONSENT_KEY]){
+			updateSplitDelegation(changes[SPLIT_CONSENT_KEY].newValue===true);
+			// Rebuild Proton's proxy settings with or without Helper routing.
+			void reconfigure().catch(e=>console.warn('[site-router] delegation refresh failed',e));
+		}
 		if (area === 'local' && changes[STORE_KEY] && internalPolicyUpdateDepth === 0) {
 			void reconfigure().catch((e) => console.warn('[site-router] proxy reconfigure error', e));
 		}
