@@ -46,3 +46,7 @@ Run `python3 tests/toolbar_integration.py`. Isolated Chromium verifies the toolb
 ## Local permission and two-way control
 
 The country-routing controller also requires the user-controlled delegation toggle within the Proton-style Split tunnelling settings. While off, it does not apply per-site routes, and the original Proton editor is authoritative. The permission and country rule counts are mirrored in both directions using extension-local storage; no Proton session secrets are copied. The real-browser consent and revocation workflow is verified in tests/toolbar_integration.py. This is documented separately in CONSENT_AND_ACCOUNT.md.
+
+## Unauthenticated setup reachability
+
+The test now opens the combined extension's signed-out Proton page, clicks **Configure Helper split tunnelling**, finds its independent consent control in **All website rules**, grants and revokes it by explicit clicks, and checks the same state on the Proton-style Split tunnelling page. This avoids requiring an unverified Proton sign-in to see and configure the Helper's local permission.

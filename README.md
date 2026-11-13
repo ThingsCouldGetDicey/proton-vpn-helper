@@ -34,7 +34,7 @@ Proton's existing engine remains responsible for authentication, server eligibil
 
 *Real Chromium screenshot, not a mock-up or proof of a Swiss exit IP.*
 
-**First-time setup — give permission in the Proton controls:** Open **Proton VPN controls → Settings → Split tunnelling** and turn on **Allow Proton VPN Helper to manage split tunnelling**. This starts **off** and is a local, reversible permission: without it the Helper cannot change split-tunnelling exceptions, apply per-site country routing or retry countries automatically. The original Proton page and Helper mirror permission and rule changes in both directions. [Consent and Proton account walkthrough](docs/CONSENT_AND_ACCOUNT.md).
+**First-time setup — before Proton sign-in:** Open **All website rules** from the Helper toolbar, or choose **Configure Helper split tunnelling** on its Proton sign-in screen. Use **Allow Proton VPN Helper to manage split tunnelling** at the top of the settings page. You can also access the same switch in **Proton VPN controls → Settings → Split tunnelling** once signed in. It starts **off** and is a local, reversible permission; without it the Helper cannot change split-tunnelling exceptions, apply per-site country routing or retry countries automatically. The two views mirror permission and rule changes in both directions. [Consent and Proton account walkthrough](docs/CONSENT_AND_ACCOUNT.md).
 
 This consent **does not sign into Proton or share the official extension's private account session**. Use Proton's own account sign-in within the unofficial combined extension; authentication with its independent extension ID is still unverified.
 
@@ -60,7 +60,7 @@ If Proton already **excludes** the exact website, the save button explicitly off
    ```
 
 2. Open a **separate test profile** in Chrome, Brave, Chromium or Vivaldi. Visit its Extensions page (`chrome://extensions`, `brave://extensions` or `vivaldi://extensions`). Enable **Developer mode**, choose **Load unpacked**, and select this project's `distribution/` folder. Do not run two VPN extensions that control the proxy in the same profile.
-3. In the Helper toolbar, choose **Proton VPN controls → Settings → Split tunnelling** and explicitly enable **Allow Proton VPN Helper to manage split tunnelling**. This is a local permission, not a Proton account login.
+3. Before signing into Proton, choose **All website rules** from the Helper toolbar (or **Configure Helper split tunnelling** on the Proton sign-in screen) and enable **Allow Proton VPN Helper to manage split tunnelling**. If already signed in, the same switch also appears under **Proton VPN controls → Settings → Split tunnelling**. This is local permission, not an account login.
 4. Return to the Helper toolbar or press **Alt+Shift+Y** while viewing a website. Select a country and save. The popup explains conflicting Proton split-tunnelling rules; **All website rules** opens the advanced editor.
 
 These steps demonstrate **saving and managing preferences**. They do not prove that the modified extension can log in to Proton or route network traffic safely. Do not enable automatic switching for real browsing until the remaining checks are complete.

@@ -2234,3 +2234,21 @@ body:not(.auto-theme, .light-theme) {
   opacity: 0.45;
   pointer-events: none;
 }
+
+.helper-prelogin-settings {
+  display: block;
+  max-width: 315px;
+  margin: 22px auto 0;
+  padding: 10px 12px;
+  border: 1px solid #75619d;
+  border-radius: 8px;
+  color: #d9c7ff;
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.helper-prelogin-settings:hover,
+.helper-prelogin-settings:focus-visible {
+  background: #4c386b;
+}
