@@ -25,3 +25,7 @@ This is intended behaviour documented from the source, not an independent audit 
 ## Helper split-tunnelling delegation
 
 The combined extension stores a local boolean permission that defaults off. It is explicitly toggled from Proton's split-tunnelling settings. The Helper reads that permission to decide whether it may manage website exceptions or apply country routing. Switching it off retains saved local rules but disables their application; it does not sign out of Proton or retrieve Proton account credentials.
+
+## Optional public-IP verification
+
+The browser extension automatically observes Proton's connection state and Chrome proxy ownership locally. External checks are **off by default** and use https://api.country.is/ only after an explicit button click or when recurring verification is enabled. Country.is receives the public IP of each check. No Proton credentials, page content, or saved website rules are sent. Exit-IP results stay in extension memory and expire after five minutes; a changed connection invalidates the evidence.

@@ -13,12 +13,14 @@ import {initSentry} from './tools/sentry';
 import {setProxyToWaiterHost} from './tools/proxy';
 import {installSiteRouterDetector} from './siteRouter/detector';
 import {installSiteRouterToolbarBadge} from './siteRouter/toolbarBadge';
+import {installConnectionHealthMonitor} from './siteRouter/connectionHealth';
 import {installSiteRouterNativeSync} from './siteRouter/nativeSync';
 
 triggerPromise(setProxyToWaiterHost());
 initSentry();
 installSiteRouterDetector();
 installSiteRouterToolbarBadge();
+installConnectionHealthMonitor();
 installSiteRouterNativeSync();
 initAuthInterceptor();
 initMessaging();

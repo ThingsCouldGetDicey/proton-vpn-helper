@@ -3,6 +3,8 @@ import {DEFAULT_POLICY, STORE_KEY, normalizeCountry, normalizeDomain, findRule,
 import {evaluateSiteSplitConflict, type SiteSplitConflict} from './splitConflict';
 import type {StoredWebsiteFilterList} from '../vpn/WebsiteFilter';
 import {SPLIT_CONSENT_KEY,hasSplitConsent} from './splitConsent';
+import type {HelperCountry,HelperCountryCatalog} from './countryCatalog';
+import {AUTO_PROBE_KEY} from './healthPreferences';
 
 function element<T extends HTMLElement>(id:string):T {
   const found=document.getElementById(id);
@@ -15,6 +17,8 @@ const saveButton=()=>element<HTMLButtonElement>('save-route');
 const removeButton=()=>element<HTMLButtonElement>('remove-route');
 const splitNotice=()=>element<HTMLParagraphElement>('split-notice');
 let connectionOK=false;
+let providerCatalog:HelperCountryCatalog|undefined;
+let catalogLoading=false;
 let delegated=false;
 let currentIssue:SiteSplitConflict={kind:'none',canResolve:false};
 let updateSequence=0;
@@ -23,6 +27,99 @@ function feedback(message:string,error=false):void {
   const target=element('feedback');
   target.textContent=message;
   target.classList.toggle('error',error);
+}
+function sourceLabel(message:string):void {
+  element('country-source').textContent=message;
+}
+function updateFlag(country:string):void {
+  const flag=element<HTMLImageElement>('current-country-flag');
+  if(!/^[A-Z]{2}$/.test(country)){
+    flag.hidden=true;
+    flag.removeAttribute('src');
+    return;
+  }
+  flag.src='img/flags/'+country.toLowerCase()+'.svg';
+  flag.hidden=false;
+}
+function createCountryButton(country:HelperCountry):HTMLButtonElement{
+  const button=document.createElement('button');
+  button.type='button';
+  button.role='option';
+  button.disabled=!country.available || providerCatalog?.entitled!==true;
+  button.setAttribute('aria-selected',countrySelect().value===country.code?'true':'false');
+  const img=document.createElement('img');
+  img.src='img/flags/'+country.code.toLowerCase()+'.svg';
+  img.alt='';
+  img.width=20;img.height=15;
+  const title=document.createElement('span');
+  title.className='country-title';
+  title.textContent=country.name;
+  const tag=document.createElement('span');
+  tag.className='country-tag';
+  tag.textContent=country.locked?'Upgrade':country.available?'': 'Unavailable';
+  button.append(img,title,tag);
+  button.addEventListener('click',()=>{
+    countrySelect().value=country.code;
+    updateFlag(country.code);
+    const host=hostname();
+    if(host && delegated && (currentIssue.kind==='none'||currentIssue.canResolve)) saveButton().disabled=false;
+    drawCountryList();
+    feedback('');
+  });
+  return button;
+}
+function drawCountryList():void {
+  const list=element('country-list');
+  list.replaceChildren();
+  const catalog=providerCatalog;
+  if(!catalog?.countries.length)return;
+  const search=element<HTMLInputElement>('country-search').value.toLocaleLowerCase().trim();
+  for(const c of catalog.countries.filter(c=>!search||
+      c.name.toLocaleLowerCase().includes(search)||c.code.toLocaleLowerCase().includes(search))){
+    list.append(createCountryButton(c));
+  }
+  if(!list.children.length)sourceLabel('No Proton countries match that search.');
+}
+async function refreshCountries():Promise<void> {
+  if(catalogLoading)return;
+  catalogLoading=true;
+  try {
+    const catalog=await chrome.runtime.sendMessage({type:'protonSiteRouterCountries'}) as HelperCountryCatalog;
+    if(!catalog||!Array.isArray(catalog.countries))throw new Error('No catalogue response');
+    providerCatalog=catalog;
+    const select=countrySelect();
+    const previous=select.value;
+    select.replaceChildren(new Option('Use normal Proton country',''));
+    const available=catalog.countries.filter(c=>c.available && catalog.entitled);
+    for(const c of catalog.countries){
+      const option=new Option(c.name+' ('+c.code+')'+(c.locked?' · Upgrade':!c.available?' · Unavailable':''),
+        c.code);
+      option.disabled=!c.available||!catalog.entitled;
+      select.add(option);
+    }
+    const old=available.some(c=>c.code===previous)?previous:'';
+    select.value=old;
+    updateFlag(old);
+    element<HTMLInputElement>('country-search').disabled=!catalog.authenticated||!catalog.countries.length;
+    if(!catalog.authenticated){
+      sourceLabel('Sign into Proton to load the same countries and flags as its original server list. No destinations are assumed.');
+    }else if(catalog.error){
+      sourceLabel('Proton catalogue unavailable: '+catalog.error);
+    }else if(!catalog.entitled){
+      sourceLabel('Proton browser VPN subscription is not active; countries cannot be selected.');
+    }else{
+      sourceLabel(available.length+' eligible countries from Proton · '+
+        catalog.countries.length+' shown including unavailable/upgrade locations.');
+    }
+    element<HTMLInputElement>('country-search').placeholder=catalog.authenticated?
+      'Search Proton countries':'Sign in to load Proton countries';
+    drawCountryList();
+  }catch {
+    providerCatalog=undefined;
+    countrySelect().replaceChildren(new Option('Proton catalogue unavailable',''));
+    element('country-list').replaceChildren();
+    sourceLabel('Proton server catalogue could not be loaded; no countries can be verified.');
+  }finally{catalogLoading=false;}
 }
 async function readPolicy():Promise<SiteRouterPolicy> {
   const raw=(await chrome.storage.local.get(STORE_KEY))[STORE_KEY];
@@ -61,18 +158,59 @@ async function refreshConnection():Promise<void> {
   const status=element('vpn-status');
   try {
     const data=await chrome.runtime.sendMessage({type:'protonSiteRouterStatus'}) as
-      {connected?:boolean;proxyControl?:string;signedIn?:boolean;selectedCountry?:string;selectedServer?:string};
+      {connected?:boolean;proxyControl?:string;proxyMode?:string;signedIn?:boolean;
+        ownsProxy?:boolean;selectedCountry?:string;selectedServer?:string};
     connectionOK=data?.connected===true;
+    element('connection-details').textContent=
+      'Proton session: '+(data?.signedIn?'present':'absent')+
+      ' · Proxy: '+(data?.ownsProxy?'owned by Helper':'not verified')+
+      ' · Mode: '+(data?.proxyMode||'unknown');
+    element<HTMLButtonElement>('verify-exit').disabled=!connectionOK;
     status.textContent=connectionOK
       ? 'Proton connected'+(data.selectedCountry ? ' · '+data.selectedCountry : '')+' · exit IP not verified'
       : data?.proxyControl==='controlled_by_other_extensions'
         ? 'Another extension controls the proxy · routes unavailable'
-        : data?.signedIn ? 'Proton account signed in · VPN disconnected · saved routes inactive'
+        : data?.signedIn ? 'Proton session found (not independently validated) · VPN disconnected'
           : 'VPN disconnected · sign in through Proton VPN controls to activate routing';
   }catch {
     connectionOK=false;
+    element('connection-details').textContent='Connection diagnostics unavailable.';
+    element<HTMLButtonElement>('verify-exit').disabled=true;
     status.textContent='VPN connection cannot be verified · do not rely on routing';
   }
+}
+async function displayExitEvidence():Promise<void>{
+  try {
+    const health=await chrome.runtime.sendMessage({type:'protonSiteRouterHealth'}) as
+      {lastCheckedAt?:number;exit?:{status:string;expected?:string;
+        observedCountry?:string;observedIP?:string;checkedAt:number}};
+    const dest=element('exit-evidence');
+    const exit=health?.exit;
+    if(exit?.status==='country-match'){
+      dest.textContent='Observed VPN default exit '+exit.observedCountry+
+        ' ('+exit.observedIP+') · country matches selected location, but Proton ownership and other traffic are not independently proven.';
+    }else if(exit?.status==='country-mismatch'){
+      dest.textContent='Warning: observed exit '+exit.observedCountry+
+        ' differs from selected '+exit.expected+'. VPN routing not verified.';
+    }else if(exit?.status==='failed'){
+      dest.textContent='Exit-IP verification failed. Do not assume VPN protection.';
+    }else {
+      dest.textContent='Exit IP not checked or evidence older than 5 minutes. Optional check sends the request IP to api.country.is. Browser proxy state is monitored automatically.';
+    }
+  }catch{element('exit-evidence').textContent='Exit verification status unavailable.';}
+}
+async function runExitCheck():Promise<void>{
+  const button=element<HTMLButtonElement>('verify-exit');
+  if(!connectionOK){feedback('Proton must connect before testing external exit IP.',true);return;}
+  button.disabled=true;
+  element('exit-evidence').textContent='Checking actual browser exit via country.is…';
+  try {
+    const result=await chrome.runtime.sendMessage({type:'protonSiteRouterVerifyExit'}) as
+      {ok?:boolean;reason?:string};
+    if(!result?.ok)feedback(result.reason||'Could not verify default VPN exit.',true);
+    await displayExitEvidence();
+  }catch{feedback('External exit-IP check failed.',true);}
+  finally{button.disabled=!connectionOK;}
 }
 async function refreshSite():Promise<void> {
   const seq=++updateSequence;
@@ -85,7 +223,13 @@ async function refreshSite():Promise<void> {
   currentIssue={kind:'none',canResolve:false};
   if (!delegated && host) {
     const existing=findRule(host,policy.rules);
+    if(existing?.country && ![...countrySelect().options].some(o=>o.value===existing.country)){
+      const option=new Option('Saved '+existing.country+' · not verified',existing.country);
+      option.disabled=true;
+      countrySelect().add(option);
+    }
     countrySelect().value=existing?.country||'';
+    updateFlag(existing?.country||'');
     element<HTMLInputElement>('subdomains').checked=existing?.subdomains!==false;
     element<HTMLInputElement>('auto-detect').checked=policy.autoDetect;
     element<HTMLInputElement>('auto-retry').checked=policy.autoRetry;
@@ -102,13 +246,24 @@ async function refreshSite():Promise<void> {
   }
   currentIssue=evaluateSiteSplitConflict(host,split);
   const rule=findRule(host,policy.rules);
+  if(rule?.country && ![...countrySelect().options].some(o=>o.value===rule.country)){
+    const option=new Option('Saved '+rule.country+' · not yet verified',rule.country);
+    option.disabled=true;
+    countrySelect().add(option);
+  }
   countrySelect().value=rule?.country||'';
+  updateFlag(rule?.country||'');
   element<HTMLInputElement>('subdomains').checked=rule?.subdomains!==false;
   element<HTMLInputElement>('auto-detect').checked=policy.autoDetect;
   element<HTMLInputElement>('auto-retry').checked=policy.autoRetry;
   removeButton().disabled=!rule;
-  saveButton().disabled=false;
-  saveButton().textContent='Save website route';
+  const hasEligibleSelection=Boolean(rule?.country) || (providerCatalog?.authenticated===true &&
+    providerCatalog.entitled===true && providerCatalog.countries.some(c=>
+      c.code===countrySelect().value && c.available));
+  saveButton().disabled=!hasEligibleSelection;
+  saveButton().textContent=!providerCatalog?.authenticated
+    ? 'Sign in to load Proton countries'
+    : 'Save website route';
   if (currentIssue.kind==='excluded') {
     notice.classList.remove('hidden');
     if (currentIssue.canResolve) {
@@ -125,6 +280,7 @@ async function refreshSite():Promise<void> {
     notice.textContent='Proton is in Include-only split tunnelling mode. Saving this route will also add the exact website to the VPN include list.';
     saveButton().textContent='Include site and save country';
   }
+  if(!providerCatalog?.authenticated)saveButton().disabled=true;
 }
 async function save():Promise<void> {
   const host=hostname();
@@ -192,13 +348,31 @@ async function updateAutomation(what:'autoDetect'|'autoRetry',enabled:boolean):P
 async function init():Promise<void>{
   const current=await getActiveTabHost();
   if (current) hostInput().value=current;
+  element<HTMLInputElement>('auto-verify-exit').checked=
+    (await chrome.storage.local.get(AUTO_PROBE_KEY))[AUTO_PROBE_KEY]===true;
   await Promise.all([refreshConnection(),refreshConsent()]);
+  await refreshCountries();
+  await displayExitEvidence();
   await refreshSite();
   // Read Proton's live connection state; do not claim a saved rule equals a VPN.
-  setInterval(()=>{void refreshConnection();},3500);
+  setInterval(()=>{void refreshConnection();void displayExitEvidence();},3500);
+  setInterval(()=>{void refreshCountries();},60000);
   hostInput().addEventListener('change',()=>{feedback('');void refreshSite();});
   hostInput().addEventListener('input',()=>{void refreshSite();});
-  countrySelect().addEventListener('change',()=>{feedback('');});
+  countrySelect().addEventListener('change',()=>{
+    updateFlag(countrySelect().value);
+    if(hostname()&&delegated&&countrySelect().value && (currentIssue.kind==='none'||currentIssue.canResolve)) saveButton().disabled=false;
+    drawCountryList();feedback('');
+  });
+  element<HTMLInputElement>('country-search').addEventListener('input',drawCountryList);
+  element<HTMLButtonElement>('verify-exit').addEventListener('click',()=>{void runExitCheck();});
+  element<HTMLInputElement>('auto-verify-exit').addEventListener('change',event=>{
+    const enabled=(event.currentTarget as HTMLInputElement).checked;
+    void chrome.storage.local.set({[AUTO_PROBE_KEY]:enabled}).then(()=>
+      feedback(enabled?'Periodic exit checks enabled. country.is receives a request IP every 5 minutes while connected.'
+        :'Periodic external checks disabled. Local VPN health monitoring remains enabled.')
+    ).catch(()=>feedback('Could not save verification preference.',true));
+  });
   saveButton().addEventListener('click',()=>{void save();});
   removeButton().addEventListener('click',()=>{void remove();});
   element<HTMLInputElement>('auto-detect').addEventListener('change',ev=>

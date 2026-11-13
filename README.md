@@ -28,6 +28,16 @@ The helper is designed to make three things possible: save a country per website
 
 Proton's existing engine remains responsible for authentication, server eligibility, connections and browser proxy settings. This is **one modified extension**, not a second extension fighting Proton for proxy control.
 
+## Proton countries and real connection evidence
+
+The Helper now uses **Proton's own live server catalogue**, including country names and the original flag SVGs, rather than a hard-coded list of destinations. Once signed into Proton, the list reflects which countries the subscription can actually use; locked and unavailable countries are identified but cannot be selected.
+
+The browser proxy and Proton account/session are checked automatically while Chromium is running. A separate **Check default VPN exit IP** control can ask country.is for the visible public IP and country. Optional recurring checks every five minutes are **off by default** because country.is will receive that request's public IP. A match alone is not proof that every website, DNS request or WebRTC connection uses Proton.
+
+![Actual headless Chromium screenshot of the Helper with no account session and no invented Proton countries](docs/images/proton-catalog-signed-out.png)
+
+*Real browser screenshot, not a mock-up. The country list is correctly empty while signed out; no authenticated Proton country-routing result has been verified yet.* See [connection verification and remaining proof obligations](docs/CONNECTION_VERIFICATION.md).
+
 ## The toolbar shortcut (developer preview)
 
 ![Real Chromium screenshot of the Proton VPN Helper toolbar popup. The current site is assigned Switzerland; the VPN is explicitly shown disconnected. Original Proton controls remain available in the bottom bar.](docs/images/toolbar-current-site.png)
@@ -86,6 +96,6 @@ The status above reflects the available automated tests, **not** a security cert
 
 This project is licensed under the **GNU GPLv3**, with attribution to the original [Proton browser extension](https://github.com/ProtonVPN/proton-vpn-browser-extension). It has its own name and icon and does not distribute Proton account credentials. The optional page classification processes visible text locally and is disabled by default.
 
-For technical details, see [development and test instructions](docs/LOCAL_DEVELOPMENT.md), [synthetic browser routing tests](docs/ROUTING_TESTS.md), [privacy](PRIVACY.md), and [security](SECURITY.md). The [marketplace release checklist](docs/STORE_READINESS.md) lists the tests and reviews required before Chrome Web Store submission.
+For technical details, see [development and test instructions](docs/LOCAL_DEVELOPMENT.md), [synthetic browser routing tests](docs/ROUTING_TESTS.md), [connection verification](docs/CONNECTION_VERIFICATION.md), [privacy](PRIVACY.md), and [security](SECURITY.md). The [marketplace release checklist](docs/STORE_READINESS.md) lists the tests and reviews required before Chrome Web Store submission.
 
 **There is no marketplace release yet.** Once live Proton routing and leak testing pass, this README should include a second, separately verified demonstration showing the actual exit IP for each website, alongside the setup screenshot above.

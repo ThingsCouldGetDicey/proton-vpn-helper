@@ -20,3 +20,7 @@ Chrome Web Store policies: https://developer.chrome.com/docs/webstore/program-po
 The new toolbar shortcut and split-tunnelling conversion have isolated Chromium tests; these are NOT evidence of authenticated Proton traffic, permission compatibility on every browser, or marketplace approval.
 
 - [ ] Confirm that the new opt-in delegation control is clearly visible next to Proton split-tunnelling settings, starts off, can be revoked, and does not conflict with connection management in live authenticated sessions.
+
+- [ ] Demonstrate authorised login in the independent fork and verify subscription-dependent country availability matches original Proton, including locked regions and flag icons.
+- [ ] Capture reproducible proof of authenticated country-specific Proton proxy exits and their actual external IPs; proxy ownership alone is not enough.
+- [ ] Verify no DNS/WebRTC/subresource leaks and safe reconnect/failure behaviour under the recurring health monitor.
