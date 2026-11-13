@@ -1,0 +1,22 @@
+coverage
+node_modules
+yarn.lock
+distribution
+distribution-*
+build
+source.zip
+*.php
+*.py
+!native/*.py
+!tests/*.py
+__pycache__/
+*.pyc
+*.d.ts
+
+# IDE
+.idea
+.vscode
+
+# MacOS
+*.DS_Store
+release/

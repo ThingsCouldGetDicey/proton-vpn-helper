@@ -1,0 +1,884 @@
+// TODO: Remove this when VPNBEX-238 is done.
+/* eslint-disable @typescript-eslint/no-use-before-define */
+'use background';
+import type {
+	ConnectionState,
+	ConnectionStateSwitch,
+	ErrorDump,
+	ProxyServer,
+	SplitTunnelingConfig,
+} from './vpn/ConnectionState';
+import {asConnectionStateSwitch} from './vpn/ConnectionState';
+import {
+	type ApiError,
+	fetchApi,
+	isExcludedFromProxy,
+	isIncludedIntoProxy,
+} from './api';
+import type {ProxyInfo} from './proxy';
+import {forgetCredentials} from './account/credentials/removeCredentials';
+import {
+	cancelNextCredentialFetch,
+	getCredentials,
+	getSynchronousCredentials,
+	loadCachedCredentials,
+	loadCredentials,
+} from './account/credentials/getConnectionCredentials';
+import type {Credentials} from './account/credentials/Credentials';
+import {getCountryAndCoordinates} from './account/getLocation';
+import {setButton} from './tools/browserAction';
+import {clearProxy, hasProxy, proxyToServer} from './tools/proxy';
+import {
+	authCheck,
+	excludeApiFromProxy,
+	proxyHost,
+	proxyLocalNetworkExclusion,
+	proxyPort,
+	proxySecureCorePort,
+	scheme,
+	singleProxyPort,
+} from './config';
+import type {WithIdentifiableRequest} from './tools/proxyAuth';
+import {isPending, markAsPending} from './tools/proxyAuth';
+import type {ProxyAuthentication} from './vpn/ProxyAuthentication';
+import {milliSeconds} from './tools/milliSeconds';
+import type {Logical} from './vpn/Logical';
+import {
+	forgetLogicals,
+	getLogicalById,
+	getSortedLogicals,
+	shouldStayOnLogical,
+} from './vpn/getLogicals';
+import {c} from './tools/translate';
+import {Feature} from './vpn/Feature';
+import {SplitTunneling} from './vpn/features/SplitTunneling';
+import {SecureCore} from './vpn/features/SecureCore';
+import {AutoConnect} from './vpn/features/AutoConnect';
+import {emitNotification} from './notifications/emitNotification';
+import {checkNetwork} from './vpn/checkNetwork';
+import {getAlternativeServer} from './vpn/getAlternatives';
+import {triggerPromise} from './tools/triggerPromise';
+import {
+	persistentlyStoredSession,
+	readSession,
+	storedSession,
+} from './account/readSession';
+import {
+	forgetLastChoice,
+	getLastChoice,
+	getLogicalsFilteredByChoice,
+} from './vpn/lastChoice';
+import {getUser} from './account/user/getUser';
+import {getUserMaxTier} from './account/user/getUserMaxTier';
+import {forgetUser} from './account/user/forgetUser';
+import {notifyStateChange} from './tools/notifyStateChange';
+import {requireBestLogical} from './vpn/getLogical';
+import {getErrorAsString} from './tools/getErrorMessage';
+import {connectedServer} from './vpn/connectedServer';
+import type {Server} from './vpn/Server';
+import {SettingChange} from './messaging/MessageType';
+import {getSplitTunnelingConfig} from './vpn/getSplitTunnelingConfig';
+import {bind, debug as debug_, info as info_, warn as warn_} from './log/log';
+import {getBasicAuth} from './vpn/getBasicAuth';
+import {getAccessToken} from './account/getAccessToken';
+import {pickServerInLogical} from './vpn/pickServerInLogical';
+import {getSecureCorePredicate} from './vpn/getSecureCorePredicate';
+import {
+	getActivityCheckInterval,
+	getLogicalCheckUpRefreshInterval,
+} from './intervals';
+import {delay} from './tools/delay';
+import {handleError} from './tools/sentry';
+import {updateLastActivityTime} from './tools/activity';
+import {guessTierFromCredentials} from './account/credentials/guessTierFromCredentials';
+import {mayReplaceCredentials} from './account/credentials/mayReplaceCredentials';
+import {forgetClientConfig} from './account/user/clientconfig/forgetClientConfig';
+import {transmitCredentialsToProxy} from './vpn/transmitCredentialsToProxy';
+import {
+	setReviewInfoStateLastSeenConnected,
+	setReviewInfoStateOnFailedConnection,
+} from './vpn/reviewInfo';
+import {getBypassList} from './vpn/getBypassList';
+import {getIncludeOnlyList} from './vpn/getIncludeOnlyList';
+import OnAuthRequiredDetails = chrome.webRequest.OnAuthRequiredDetails;
+import OnRequestDetails = browser.proxy._OnRequestDetails;
+import {isSiteRouterProxyHost, firefoxSiteProxy} from './siteRouter/runtime';
+
+const debug = bind(debug_, '[state]');
+const info = bind(info_, '[state]');
+const warn = bind(warn_, '[state]');
+
+let currentState: ConnectionState;
+
+let lastLogicalCheck = 0;
+
+const hasWarning = () => !!(currentState?.data?.error as ApiError)?.Warning;
+
+const serverHostnames: Record<string, boolean> = {};
+
+export const isProxyKnownHost = (host: string): boolean =>
+	host === currentState?.data?.server?.proxyHost ||
+	/^(.*\.)?protonvpn(\.net|\.com)(:\d+)?$/.test(host) ||
+	!!serverHostnames[host] || isSiteRouterProxyHost(host);
+
+export function getAuthCredentials(
+	credentials: Credentials | undefined,
+	requestDetails?: WithIdentifiableRequest,
+): ProxyAuthentication | undefined {
+	const data = currentState.data;
+
+	if (
+		credentials &&
+		(data.credsData?.Username !== credentials.Username ||
+			data.credsData?.Password !== credentials.Password)
+	) {
+		Object.assign(data, {
+			credsTry: 0,
+			credsData: credentials,
+		});
+	}
+
+	if (data.credsData) {
+		if (!authCheck) {
+			return {
+				authCredentials: {
+					username: data.credsData.Username,
+					password: data.credsData.Password,
+				},
+			};
+		}
+
+		data.credsTry = (data.credsTry || 0) + 1;
+		// Do not try more than 10 times
+
+		if (data.credsTry < 10) {
+			if (requestDetails) {
+				markAsPending(requestDetails);
+			}
+
+			return {
+				authCredentials: {
+					username: data.credsData.Username,
+					password: data.credsData.Password,
+				},
+			};
+		}
+
+		warn(data.credsTry + ' consecutive failures');
+	}
+
+	return undefined;
+}
+
+// **** Logged in and connected ****
+const onState = asConnectionStateSwitch({
+	name: 'on',
+	initializedAt: 0,
+	proxyEnabled: false as boolean,
+	refreshingState: false,
+
+	init(oldState?: ConnectionState): void {
+		this.proxyEnabled = false;
+		currentState.data = {
+			credsData: undefined,
+			...oldState?.data,
+			...currentState.data,
+			starting: true,
+		};
+
+		if (typeof currentState.data.server === 'undefined') {
+			return switchState(offState);
+		}
+	},
+
+	async connectCurrentServer(): Promise<boolean> {
+		const server = currentState?.data?.server;
+		info('Connect to', server);
+
+		return (
+			!!server && (await this.setProxy(server, server.splitTunneling || {}))
+		);
+	},
+
+	async setOption(type: SettingChange, data: any): Promise<void> {
+		switch (type) {
+			case SettingChange.BYPASS_LIST:
+				if (currentState?.data?.server) {
+					currentState.data.server.splitTunneling = data;
+					await this.connectCurrentServer();
+				}
+
+				break;
+		}
+	},
+
+	async setProxy(
+		server: ProxyServer,
+		splitTunneling: SplitTunnelingConfig = {},
+	): Promise<boolean> {
+		if (currentState.data?.starting) {
+			delete currentState.data.starting;
+		}
+
+		serverHostnames[server.proxyHost] = true;
+		const credentials = await getCredentials();
+
+		if (
+			!credentials ||
+			((await loadCachedCredentials())?.time || 0) < Date.now()
+		) {
+			warn(credentials ? 'Expired token' : 'No token');
+
+			return false;
+		}
+
+		if (!(await proxyToServer(server, splitTunneling))) {
+			return false;
+		}
+
+		this.proxyEnabled = true;
+		triggerPromise(this.checkLogicalIsUp(credentials));
+
+		setReviewInfoStateLastSeenConnected();
+
+		return true;
+	},
+
+	async setConnected(): Promise<void> {
+		if (!currentState?.data?.server) {
+			disconnect(new Error(c('Error').t`Server not found`));
+
+			return;
+		}
+
+		const time = Date.now();
+		const initialState = currentState;
+		const server = currentState.data.server;
+		const name = currentState.data.server.name;
+		lastLogicalCheck = time;
+
+		if (!(await this.connectCurrentServer())) {
+			disconnect(
+				new Error(
+					c('Error')
+						.t`Not able to control the browser network settings, possibly a permission is missing`,
+				),
+			);
+
+			return;
+		}
+
+		const host = currentState.data.server?.proxyHost;
+
+		if (host) {
+			const credsData = currentState?.data?.credsData;
+			transmitCredentialsToProxy(
+				host,
+				credsData?.Username,
+				credsData?.Password,
+			);
+		}
+
+		setTimeout(
+			() => {
+				if (
+					initialState !== currentState ||
+					currentState.data.server?.name !== name
+				) {
+					return;
+				}
+
+				notifyStateChange('connected', {
+					server,
+					error: currentState.data.error,
+				});
+
+				const serverName = name || '';
+
+				setButton('on', `${c('Label').t`Protected`} - ${serverName}`);
+			},
+			Math.max(1, 200 - Date.now() + time),
+		);
+	},
+
+	setCredentials(credentials: Credentials | undefined): void {
+		const userName = credentials?.Username;
+		const password = credentials?.Password;
+
+		if (!userName || !password) {
+			return;
+		}
+
+		const credsData = currentState?.data?.credsData;
+
+		if (userName === credsData?.Username && password === credsData?.Password) {
+			if (currentState.data?.starting) {
+				triggerPromise(this.setConnected());
+			}
+
+			return;
+		}
+
+		if (!mayReplaceCredentials(credsData, credentials)) {
+			return;
+		}
+
+		Object.assign(currentState.data, {
+			credsTry: 0,
+			credsData: {
+				Username: userName,
+				Password: password,
+			},
+		});
+
+		triggerPromise(this.setConnected());
+	},
+
+	async checkLogicalIsUp(credentials?: Credentials): Promise<void> {
+		const time = Date.now();
+		const id = currentState?.data?.server?.id;
+
+		if (!id || time - lastLogicalCheck < getLogicalCheckUpRefreshInterval()) {
+			return;
+		}
+
+		const initializedAt = this.initializedAt;
+		lastLogicalCheck = time;
+
+		try {
+			await delay(500);
+
+			if (!this.proxyEnabled || !isCurrentStateConnected()) {
+				return;
+			}
+
+			const {country, coordinates} = await getCountryAndCoordinates();
+
+			if (!(await shouldStayOnLogical(id, country, coordinates))) {
+				const currentCredentials = credentials || (await getCredentials(true));
+
+				// No need to switch server before getting valid credentials, and if we don't get valid credentials
+				// soon, it will disconnect anyway
+				if (currentCredentials) {
+					const {server, logical} = await getAlternativeServer(id, {
+						country,
+						location: coordinates,
+						tier: guessTierFromCredentials(currentCredentials),
+					});
+
+					if (
+						logical &&
+						server &&
+						initializedAt === getCurrentState().initializedAt
+					) {
+						await connectLogical(
+							logical,
+							server,
+							currentState?.data?.server?.splitTunneling,
+						);
+					}
+				}
+			}
+		} catch (e) {
+			checkNetwork(e);
+		}
+	},
+
+	async refreshState(): Promise<void> {
+		if (this.refreshingState) {
+			return;
+		}
+
+		this.refreshingState = true;
+
+		try {
+			triggerPromise(this.checkLogicalIsUp());
+
+			if (!currentState.data?.starting && (await hasProxy())) {
+				return;
+			}
+
+			try {
+				let credentials = await loadCredentials();
+
+				if (credentials) {
+					this.setCredentials(credentials);
+
+					return;
+				}
+
+				if (hasWarning()) {
+					return;
+				}
+
+				const server = currentState?.data?.server;
+				const serverName = server?.name || '';
+
+				notifyStateChange('connecting', {server});
+
+				setButton(
+					'connecting',
+					/* translator: connection in progress to the server, for instance "Connecting to Paris #12" */
+					c('Status').t`Connecting to ${serverName}`,
+				);
+
+				credentials = await getCredentials(true);
+
+				if (
+					!hasWarning() &&
+					(!credentials?.Username || !credentials?.Password)
+				) {
+					switchState(offState);
+
+					return;
+				}
+
+				this.setCredentials(credentials);
+
+				if (!currentState?.data?.server) {
+					throw new Error('No server');
+				}
+
+				await this.connectCurrentServer();
+			} catch (e) {
+				disconnect(e as ApiError);
+				handleError(e);
+			}
+		} finally {
+			this.refreshingState = false;
+		}
+	},
+
+	handleProxyRequest(
+		requestDetails: OnRequestDetails,
+	): ProxyInfo | Promise<ProxyInfo> {
+		// This is only to avoid proxy for localhost, but we might actually want to access the API via the proxy in normal cases
+		// We should extend this to prevent proxying for LAN addresses
+		const splitTunneling = currentState?.data?.server?.splitTunneling;
+		const bypassList = [
+			...proxyLocalNetworkExclusion,
+			...getBypassList(splitTunneling),
+		];
+
+		if (isExcludedFromProxy(requestDetails, excludeApiFromProxy, bypassList)) {
+			return {type: 'direct'};
+		}
+
+		const credentialsForSite = getSynchronousCredentials();
+		const extra = firefoxSiteProxy(new URL(requestDetails.url).hostname,
+			credentialsForSite
+				? {username: credentialsForSite.Username, password: credentialsForSite.Password}
+				: undefined);
+		if (extra) return extra as ProxyInfo;
+
+		const includeOnly = getIncludeOnlyList(splitTunneling);
+
+		if (
+			!isIncludedIntoProxy(requestDetails, excludeApiFromProxy, includeOnly)
+		) {
+			return {type: 'direct'};
+		}
+
+		const formatOutput = (newCredentials: Credentials | undefined) => {
+			const config = {
+				type: scheme,
+				host: currentState?.data?.server?.proxyHost,
+				port: currentState?.data?.server?.proxyPort,
+				...getAuthCredentials(newCredentials, requestDetails)?.authCredentials,
+			} as ProxyInfo;
+
+			if (config.username && config.password) {
+				config.proxyAuthorizationHeader = getBasicAuth(
+					config.username,
+					config.password,
+				);
+			}
+
+			return config;
+		};
+		const cachedCredentials = getSynchronousCredentials();
+
+		if (cachedCredentials) {
+			return formatOutput(cachedCredentials);
+		}
+
+		const tryCredentials = (retry: number): Promise<ProxyInfo> =>
+			getCredentials(true).then((credentials) => {
+				if (credentials) {
+					return formatOutput(credentials);
+				}
+
+				return readSession().then((session) => {
+					if (retry > 0) {
+						return delay(400).then(() => tryCredentials(retry - 1));
+					}
+
+					if (session?.uid) {
+						disconnect(new Error(c('Error').t`Server not found`));
+					} else {
+						logOut(true);
+					}
+
+					return {type: 'direct'};
+				});
+			});
+
+		return tryCredentials(3);
+	},
+
+	async handleProxyAuthentication(
+		requestDetails: OnAuthRequiredDetails,
+	): Promise<ProxyAuthentication | undefined> {
+		if (requestDetails.isProxy) {
+			if (isPending(requestDetails)) {
+				return {cancel: true};
+			}
+
+			const host = requestDetails.challenger.host;
+
+			if (
+				host === currentState?.data?.server?.proxyHost ||
+				serverHostnames[host]
+			) {
+				const credentials = await getCredentials();
+
+				return (
+					(credentials && getAuthCredentials(credentials, requestDetails)) || {
+						cancel: true,
+					}
+				);
+			}
+		}
+
+		return undefined;
+	},
+
+	checkConnectingState(time: number): void {
+		if (this.proxyEnabled) {
+			const server = currentState?.data?.server;
+			const serverName = server?.name || '';
+
+			notifyStateChange('connected', {
+				server,
+				error: currentState.data.error,
+			});
+
+			setButton('on', `${c('Label').t`Protected`} - ${serverName}`);
+		} else if (Date.now() - time > milliSeconds.fromSeconds(30)) {
+			disconnect(currentState.data?.error || new Error('Connection timeout'));
+		}
+	},
+});
+
+// **** Logged out state ****
+const loggedoutState: ConnectionStateSwitch = {
+	name: 'loggedout',
+	initializedAt: 0,
+	async init(): Promise<void> {
+		cancelNextCredentialFetch();
+		//Always start clean
+		currentState.data = {};
+
+		setButton('loggedOut');
+
+		notifyStateChange('logged-out');
+
+		await clearProxy();
+	},
+	checkConnectingState(time: number): void {
+		if (Date.now() - time > milliSeconds.fromSeconds(5)) {
+			notifyStateChange('logged-out');
+		}
+	},
+};
+
+// **** Logged in, but not connected ****
+const offState: ConnectionStateSwitch = {
+	name: 'off',
+	initializedAt: 0,
+	async init(config?: ConnectionState): Promise<void> {
+		cancelNextCredentialFetch();
+		currentState.data = {};
+		const error = config?.data?.error;
+
+		if (error) {
+			currentState.data.error =
+				error instanceof Error
+					? {
+							message: error.message,
+							stack: error.stack,
+						}
+					: error;
+		}
+
+		notifyStateChange('disconnected', {error});
+
+		setButton(error ? 'error' : 'off', error && getErrorAsString(error));
+
+		await clearProxy();
+	},
+	async refreshState(): Promise<void> {
+		if (
+			currentState.data.server &&
+			Date.now() - this.initializedAt! > milliSeconds.fromSeconds(3) &&
+			(await hasProxy())
+		) {
+			await connect(currentState.data);
+		}
+	},
+	checkConnectingState(time: number): void {
+		if (Date.now() - time > milliSeconds.fromSeconds(5)) {
+			notifyStateChange('disconnected', {
+				error:
+					currentState.data?.error ||
+					new Error('Connection initialization timeout'),
+			});
+		}
+	},
+};
+
+export function switchState(state: ConnectionStateSwitch) {
+	const oldState = currentState || undefined;
+	currentState = Object.assign({data: {}}, state, {
+		initializedAt: Date.now(),
+	});
+	info('Switch state to ' + currentState.name, currentState.data);
+	currentState.init?.(oldState);
+	currentState.refreshState?.();
+	triggerPromise(connectedServer.setValue(currentState.data?.server));
+}
+
+export function logIn() {
+	switchState(offState);
+}
+
+export function logOut(deleteSession: boolean) {
+	switchState(loggedoutState);
+	storedSession.get().then(async (session) => {
+		forgetUser();
+		triggerPromise(storedSession.remove());
+		triggerPromise(persistentlyStoredSession.remove());
+		forgetCredentials();
+		forgetLogicals();
+		forgetLastChoice();
+		forgetClientConfig();
+
+		if (deleteSession && session?.uid) {
+			triggerPromise(fetchApi('auth', {method: 'DELETE'}, undefined, session));
+		}
+	});
+
+	emitNotification('logged-out', c('Info').t`Logged out`);
+	info('Logged out');
+}
+
+export function disconnect(error?: ApiError | Error | ErrorDump | undefined) {
+	if (error) {
+		setReviewInfoStateOnFailedConnection();
+	}
+
+	emitNotification(
+		'connected-server',
+		error ? `${getErrorAsString(error)}` : c('Info').t`Disconnected`,
+	);
+
+	getCurrentState().data.error = error;
+	switchState(offState);
+}
+
+export async function connectLogical(
+	logical: Logical,
+	server: Server,
+	splitTunneling?: SplitTunnelingConfig,
+): Promise<void> {
+	const secureCoreLogical = (logical.Features & Feature.SECURE_CORE) !== 0;
+	const label = server.Label || '';
+
+	await connect({
+		server: {
+			id: logical.ID,
+			name: logical.Name,
+			exitIp: server.ExitIP,
+			entryCountry: logical.EntryCountry,
+			exitCountry: logical.ExitCountry,
+			exitCity: logical.Translations?.City || logical.City,
+			exitEnglishCity: logical.City,
+			secureCore: secureCoreLogical,
+			proxyHost: proxyHost || server.Domain,
+			proxyPort: secureCoreLogical
+				? proxySecureCorePort || proxyPort
+				: proxyPort +
+					(!singleProxyPort && /^\d+$/.test(label) ? parseInt(label, 10) : 0),
+			splitTunneling,
+		},
+	});
+}
+
+export async function connect(data: ConnectionState['data']): Promise<void> {
+	return connectAfter(data, (await connectedServer.get())?.value?.name);
+}
+
+export async function connectAfter(
+	data: ConnectionState['data'],
+	previousName: string | undefined,
+): Promise<void> {
+	delete currentState.data.error;
+	Object.assign(currentState.data, data);
+	switchState(onState);
+
+	const name = data?.server?.name;
+	const city = data?.server?.exitCity;
+
+	if (!previousName || previousName !== name) {
+		emitNotification(
+			'connected-server',
+			name
+				? city
+					? /*
+						 * translator: ${name} is a server, example: Connected to US-NY#1 in New York
+						 */ c('Info').t`Connected to ${name} in ${city}`
+					: /*
+						 * translator: ${name} is a server, example: Connected to US-NY#1
+						 */ c('Info').t`Connected to ${name}`
+				: c('Info').t`Connected`,
+		);
+	}
+}
+
+export function isLoggedIn(): boolean {
+	return currentState && currentState.name !== 'loggedout';
+}
+
+export function isCurrentStateConnected(): boolean {
+	return currentState && currentState.name === 'on';
+}
+
+export async function checkAutoConnect(): Promise<void> {
+	const user = await getUser();
+
+	if (!user) {
+		return;
+	}
+
+	const [
+		initialChoice,
+		logicals,
+		autoConnect,
+		splitTunneling,
+		secureCore,
+		{country, coordinates},
+	] = await Promise.all([
+		getLastChoice(),
+		getSortedLogicals(),
+		AutoConnect.create().then((feature) => feature.getConfig()),
+		SplitTunneling.create().then((feature) => feature.getConfig()),
+		SecureCore.create().then((feature) => feature.getConfig()),
+		getCountryAndCoordinates(),
+	]);
+
+	if (initialChoice?.connected && autoConnect?.value) {
+		// Quit auto-connect if there is no session
+		if (!(await readSession())?.uid) {
+			return;
+		}
+
+		const userTier = getUserMaxTier(user);
+		const userContext = {country, location: coordinates, tier: userTier};
+		const filteredList = getLogicalsFilteredByChoice(
+			logicals
+				.filter(getSecureCorePredicate(userTier, secureCore))
+				.filter((logical) => userTier >= logical.Tier),
+			initialChoice,
+			(id) => {
+				const logical = getLogicalById(id);
+
+				return logical ? [logical] : [];
+			},
+		);
+
+		if (filteredList[0]) {
+			const logical =
+				(initialChoice.pick === 'random'
+					? filteredList[Math.floor(Math.random() * filteredList.length)]
+					: requireBestLogical(filteredList, userContext)) || filteredList[0];
+			const server = pickServerInLogical(logical);
+
+			if (server?.Domain) {
+				await connectLogical(
+					logical,
+					server,
+					getSplitTunnelingConfig(userTier, splitTunneling),
+				);
+			}
+		}
+	}
+}
+
+export function getCurrentStateIfDefined(): ConnectionState | undefined {
+	return currentState;
+}
+
+let ready = false;
+let starters = [] as (() => void)[];
+
+export function waitForReadyState(): Promise<void> {
+	return new Promise<void>((resolve) => {
+		if (ready) {
+			resolve();
+
+			return;
+		}
+
+		starters.push(resolve);
+		getCurrentState();
+	});
+}
+
+async function getDisconnectedState(): Promise<ConnectionStateSwitch> {
+	try {
+		return (await getAccessToken()) ? offState : loggedoutState;
+	} catch {
+		return loggedoutState;
+	}
+}
+
+export function getCurrentState(): ConnectionState {
+	if (!currentState) {
+		info('New state creation');
+		currentState = {
+			data: {},
+		} as ConnectionState;
+		connectedServer
+			.get()
+			.then(async (data) => {
+				const server = data?.value;
+
+				if (server) {
+					await connectAfter({server}, server.name);
+
+					return;
+				}
+
+				debug('[getCurrentState]', data?.value);
+				switchState(await getDisconnectedState());
+				await checkAutoConnect();
+			})
+			.finally(() => {
+				ready = true;
+
+				starters.forEach((resolve) => {
+					resolve();
+				});
+
+				starters = [];
+			});
+	}
+
+	return currentState;
+}
+
+setInterval(() => {
+	if (isCurrentStateConnected()) {
+		triggerPromise(updateLastActivityTime());
+	}
+}, getActivityCheckInterval());

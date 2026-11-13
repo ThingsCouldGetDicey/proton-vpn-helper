@@ -1,0 +1,275 @@
+import {TransactionError} from './TransactionError';
+import {delay} from './delay';
+
+/** Browser Storage API https://developer.chrome.com/docs/extensions/reference/api/storage */
+export enum Storage {
+	/** Data is stored locally and cleared when the extension is removed. */
+	LOCAL = 'local',
+	/** Holds data in memory while an extension is loaded. The storage is cleared if the extension is disabled, reloaded or updated and when the browser restarts. */
+	SESSION = 'session',
+	/** If syncing is enabled, the data is synced to any Chrome browser that the user is logged into. If disabled, it behaves like **storage.local**. Chrome stores the data locally when the browser is offline and resumes syncing when it's back online. */
+	SYNC = 'sync',
+	/** Businesses can customize feature default settings using the managed storage */
+	MANAGED = 'managed',
+}
+
+type CacheKey<T> = Exclude<keyof T, 'time'>;
+
+type CacheValue<T> = T[CacheKey<T>];
+
+const defaultStorage = Storage.LOCAL;
+
+/**
+ * Session related data (tokens, credentials, user, etc.) are stored in `Storage.LOCAL` for persistence across tabs and browser restarts.
+ */
+export const sessionDataStorageType = defaultStorage;
+
+export const storagePrefix = 'bex-';
+
+const getFallbackStorage = (storage: Storage) =>
+	storage === Storage.SESSION ? sessionStorage : localStorage;
+
+export const storageConfig = {
+	// Measure only 1% of the storage failure for trend analyze
+	failureMeasureRatio: 0.01,
+};
+
+const withoutPersistentStorage = <T>(
+	error: any,
+	callback: (lastStorage: Record<string, any>) => T,
+) => {
+	const root = (
+		typeof window === 'undefined'
+			? typeof global === 'undefined'
+				? undefined
+				: global
+			: window
+	) as any;
+
+	if (!root) {
+		throw error;
+	}
+
+	if (Math.random() < storageConfig.failureMeasureRatio) {
+		// Throw async so it does not block the fallback but can be collected by Sentry
+		setTimeout(() => {
+			throw error;
+		}, 1);
+	}
+
+	return callback(root.bexStorage || (root.bexStorage = {}));
+};
+
+export const storage = {
+	async getItem<T extends object, D extends T | undefined = T | undefined>(
+		key: string,
+		defaultValue: D = undefined as D,
+		storage: Storage = defaultStorage,
+	): Promise<T | D> {
+		const prefixedKey = storagePrefix + key;
+
+		try {
+			const data = await new Promise((resolve) => {
+				chrome.storage[storage].get(prefixedKey, resolve);
+			});
+
+			if (
+				typeof data === 'object' &&
+				Object.prototype.hasOwnProperty.call(data, prefixedKey)
+			) {
+				return (data as any)[prefixedKey];
+			}
+
+			if (storage === Storage.LOCAL && Storage.SESSION in chrome.storage) {
+				const data = await new Promise((resolve) => {
+					chrome.storage[Storage.SESSION].get(prefixedKey, resolve);
+				});
+
+				if (
+					typeof data === 'object' &&
+					Object.prototype.hasOwnProperty.call(data, prefixedKey)
+				) {
+					return (data as any)[prefixedKey];
+				}
+			}
+
+			return defaultValue;
+		} catch (firstError) {
+			try {
+				const fallbackStorage = getFallbackStorage(storage);
+
+				const rawItem = await fallbackStorage.getItem(prefixedKey);
+
+				if (typeof rawItem === 'string') {
+					return JSON.parse(rawItem);
+				}
+
+				return defaultValue;
+			} catch {
+				return withoutPersistentStorage(firstError, (lastStorage) =>
+					Object.prototype.hasOwnProperty.call(lastStorage, key)
+						? lastStorage[key]
+						: defaultValue,
+				);
+			}
+		}
+	},
+	async setItem(
+		key: string,
+		value: object,
+		storage: Storage = defaultStorage,
+	): Promise<void> {
+		const prefixedKey = storagePrefix + key;
+
+		try {
+			await chrome.storage[storage].set({[prefixedKey]: value});
+		} catch (firstError) {
+			const rawItem = JSON.stringify(value);
+
+			try {
+				getFallbackStorage(storage).setItem(prefixedKey, rawItem);
+			} catch {
+				withoutPersistentStorage(firstError, (lastStorage) => {
+					lastStorage[key] = value;
+				});
+			}
+		}
+	},
+	async removeItem(
+		key: string,
+		storage: Storage = defaultStorage,
+	): Promise<void> {
+		const prefixedKey = storagePrefix + key;
+
+		try {
+			await chrome.storage[storage].remove(prefixedKey);
+		} catch (firstError) {
+			try {
+				getFallbackStorage(storage).removeItem(prefixedKey);
+			} catch {
+				withoutPersistentStorage(firstError, (lastStorage) => {
+					delete lastStorage[key];
+				});
+			}
+		}
+	},
+	item<T extends object>(
+		key: string,
+		storage: Storage = defaultStorage,
+		valueKey: string = 'value',
+	) {
+		// eslint-disable-next-line @typescript-eslint/no-this-alias
+		const self = this;
+		let transactionStart: number | undefined = undefined;
+
+		return {
+			key,
+			async get(
+				defaultValue: T | undefined = undefined,
+				concurrencyDelay = 0,
+			): Promise<T | undefined> {
+				if (concurrencyDelay > 0) {
+					let cache = (await this.get(defaultValue)) as
+						| (T & Partial<Fetching>)
+						| undefined;
+
+					while (
+						typeof cache?.fetching === 'number' &&
+						Date.now() - cache.fetching < 5_000
+					) {
+						await delay(200);
+						cache = await this.get(defaultValue);
+					}
+
+					return cache;
+				}
+
+				return self.getItem<T>(key, defaultValue, storage);
+			},
+			getOnceNoLongerFetching(
+				concurrencyDelay = 5_000,
+				defaultValue: T | undefined = undefined,
+			): Promise<T | undefined> {
+				return this.get(defaultValue, concurrencyDelay);
+			},
+			async load(defaultValue: T | undefined = undefined): Promise<Partial<T>> {
+				try {
+					const value = await self.getItem<T>(key, defaultValue, storage);
+
+					return typeof value === 'object' ? value : {};
+				} catch {
+					return {};
+				}
+			},
+			set(value: T): Promise<void> {
+				return self.setItem(key, value, storage);
+			},
+			setValue(value: any, extraData: Record<string, any> = {}): Promise<void> {
+				return this.set({
+					time: Date.now(),
+					[valueKey]: value,
+					...extraData,
+				} as T);
+			},
+			remove(): Promise<void> {
+				return self.removeItem(key, storage);
+			},
+			async transaction<D extends T | undefined = T | undefined>(
+				callback: (value: T | D) => T | D | undefined,
+				defaultValue: D = undefined as D,
+			): Promise<void> {
+				if (transactionStart) {
+					throw new TransactionError();
+				}
+
+				transactionStart = Date.now();
+				const result = callback(
+					await self.getItem<T, D>(key, defaultValue, storage),
+				);
+				await (typeof result === 'undefined'
+					? self.removeItem(key, storage)
+					: self.setItem(key, result, storage));
+				transactionStart = undefined;
+			},
+			async transactionValue<
+				D extends CacheValue<T> | undefined = CacheValue<T> | undefined,
+			>(
+				callback: (value: CacheValue<T> | D) => CacheValue<T> | D | undefined,
+				defaultValue: D = undefined as D,
+			): Promise<void> {
+				return this.transaction(
+					(cache) => {
+						const newValue = callback(cache?.[valueKey as CacheKey<T>]);
+
+						if (newValue !== undefined) {
+							return {
+								...cache,
+								[valueKey]: newValue,
+								time: Date.now(),
+							} as T;
+						}
+
+						return undefined;
+					},
+					defaultValue === undefined
+						? undefined
+						: ({
+								[valueKey]: defaultValue,
+								time: Date.now(),
+							} as T),
+				);
+			},
+		};
+	},
+	selfItem<T extends object>(key: string, storage: Storage = defaultStorage) {
+		return this.item<T>(key, storage, key);
+	},
+};
+
+export type CacheItem<T extends object> = ReturnType<typeof storage.item<T>>;
+
+export type Timed<T> = {time: number} & T;
+
+export type Fetching = {fetching: null | number};
+
+export type CacheWrappedValue<T> = Timed<{value: T}>;

@@ -1,0 +1,103 @@
+{
+	"manifest_version": 3,
+	"name": "Proton VPN Helper (Unofficial)",
+	"description": "Unofficial GPLv3 Proton VPN browser fork with locally configurable website country routing. Not affiliated with Proton AG.",
+	"version": "1.3.6.2",
+	"minimum_chrome_version": "108.0",
+	"icons": {
+		"16": "img/icon-16.png",
+		"19": "img/icon-19.png",
+		"24": "img/icon-24.png",
+		"32": "img/icon-32.png",
+		"38": "img/icon-38.png",
+		"48": "img/icon-48.png",
+		"64": "img/icon-64.png",
+		"72": "img/icon-72.png",
+		"96": "img/icon-96.png",
+		"128": "img/icon-128.png",
+		"256": "img/icon-256.png",
+		"512": "img/icon-512.png"
+	},
+	"background": {
+		"service_worker": "js/service.js"
+	},
+	"action": {
+		"browser_style": false,
+		"default_icon": {
+			"16": "img/icon-16.png",
+			"19": "img/icon-19.png",
+			"24": "img/icon-24.png",
+			"32": "img/icon-32.png",
+			"38": "img/icon-38.png",
+			"48": "img/icon-48.png",
+			"64": "img/icon-64.png",
+			"72": "img/icon-72.png",
+			"96": "img/icon-96.png",
+			"128": "img/icon-128.png",
+			"256": "img/icon-256.png",
+			"512": "img/icon-512.png"
+		},
+		"default_title": "Proton VPN",
+		"default_popup": "popup.html"
+	},
+	"content_security_policy": {
+		"extension_pages": "script-src 'self'; object-src 'self'"
+	},
+	"host_permissions": [
+		"https://*/",
+		"http://*/",
+		"ftp://*/",
+		"wss://*/",
+		"ws://*/"
+	],
+	"permissions": [
+		"idle",
+		"notifications",
+		"privacy",
+		"proxy",
+		"scripting",
+		"storage",
+		"tabs",
+		"webRequest",
+		"webRequestAuthProvider",
+		"alarms",
+		"nativeMessaging"
+	],
+	"externally_connectable": {
+		"matches": [
+			"https://account.proton.me/*"
+		]
+	},
+	"web_accessible_resources": [
+		{
+			"resources": [
+				"js/*",
+				"img/*",
+				"css/*",
+				"fonts/*"
+			],
+			"matches": []
+		}
+	],
+	"storage": {
+		"managed_schema": "managed-storage-schema.json"
+	},
+	"key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAt4E5RGMlF7+FhkKYMQEYMxIJMgWozb1JLCihe+2TKop7b70va57vPORG+FUbEbycmTf6OIUwTYxJ9r2bSRqAGrfCNaEMbyhaFcCr1qB8OtZsGIB8VcrAd3CtgOLxPNDq2IXX2bKs+NsDCmMdCaLP6MQpjD4zdPM6/WD9krObkNYl4M9M+Zv5x8PSVavPefYv9Dz0I/IbXFS/48vpqd9zHG6MmL0A7T0JJ3fXR/aO9nMoOAT7H7W0PQNrnAlqO9jIvB5BlCZ1K5WgQ48Q44ibI6/9s5Du5qY2Yk001sIkzDwi1/UOybbxTL3hFjO1t5LHlWw15enuhpDPbu45yn+hEQIDAQAB",
+	"options_ui": {
+		"page": "site-router.html",
+		"open_in_tab": true
+	},
+	"content_scripts": [
+		{
+			"matches": [
+				"http://*/*",
+				"https://*/*"
+			],
+			"js": [
+				"js/site-router-content.js"
+			],
+			"run_at": "document_idle",
+			"all_frames": false
+		}
+	]
+}

@@ -1,0 +1,40 @@
+# One-extension Proton VPN Helper (experimental)
+
+This is a combined Chromium extension build, derived from the official Proton VPN browser-extension source under GPLv3. It includes its own region-block detector and per-website route rules. Proton's own browser VPN engine remains the sole handler of authentication, connection state, country-server selection and proxy settings.
+
+## What one install means
+
+One **unpacked browser extension** rather than installing a separate companion/controller plus provider fork. It does **not** plug into or upgrade the official Chrome Web Store Proton VPN extension. Disable the official extension in a **separate test browser profile** before enabling the fork: competing proxy-setting extensions can break browsing or expose traffic.
+
+- The fork has a **different extension ID** and does not inherit your official Proton session.
+- The official Proton account flow may not authorize the forked extension ID; login and live routing are **unverified**.
+- The fork cannot modify the installed official Proton extension.
+- This is browser-level HTTPS proxy protection, not a device-wide VPN.
+- Per-host policies do not automatically route third-party subresources or CDNs as part of the parent site.
+- Automatic alternative-country trials default **off** and must be enabled intentionally.
+- A country being detected as accessible is heuristic, not evidence that age/identity verification is legally unnecessary.
+- Do not distribute the private signing key or claim endorsement by Proton.
+
+## Build
+
+Use the consolidated release preparation branch in this project.
+
+    npm ci --ignore-scripts --no-audit --no-fund
+    npx tsc --noEmit
+    npm run build
+
+Load the built distribution/ folder into an **isolated Chromium profile** using its Extensions page -> Developer mode -> Load unpacked. A ZIP is included in release/ for transport; extract it before Load unpacked. Neither install nor activation was performed on your normal browsers.
+
+The separate companion extension remains in its own repository as a future candidate for an official Proton-supported integration, but it is not part of this single-extension build.
+
+## MCP
+
+The fork optionally syncs local site policy via the native messaging host com.local.proton_site_router. No native host is required for ordinary routing. Local MCP policy editor is in native/route_ctl.py. Local source code changes must be rebuilt, verified, and explicitly reloaded.
+
+## Tests
+
+    TS_NODE_SKIP_PROJECT=1 TS_NODE_COMPILER_OPTIONS='{"module":"Node16","moduleResolution":"Node16","target":"ES2020","rootDir":".","ignoreDeprecations":"6.0"}' npx ts-node tests/site_router.test.ts
+    python3 -m unittest discover -s tests -p 'test_policy_store.py' -v
+    SHORT_QA=1 python3 tests/browser_integration.py
+
+Authenticated live Proton sign-in, network fail-closed and IP/DNS/WebRTC leak tests remain release blockers.

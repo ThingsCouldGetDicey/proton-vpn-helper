@@ -1,0 +1,146 @@
+import type {ResponseResult} from '../api';
+import {fetchJson} from '../api';
+import type {IpLocation} from './IpLocation';
+import type {Coordinates} from '../tools/Coordinates';
+import {milliSeconds} from '../tools/milliSeconds';
+import type {Timed} from '../tools/storage';
+import {Storage, storage} from '../tools/storage';
+import {triggerPromise} from '../tools/triggerPromise';
+import {isSuspended, suspend} from '../tools/exponentialBackoff';
+import {delay} from '../tools/delay';
+import {RefreshTokenError} from './RefreshTokenError';
+import {excludeApiFromProxy} from '../config';
+import {isConnected} from '../vpn/connectedServer';
+import {getLocationRefreshInterval} from '../intervals';
+import {timezoneCountries} from '../tools/timezoneCountries';
+import {guessCountryFromLocale} from '../tools/locale';
+
+const storedLocation = storage.item<
+	Partial<Timed<{location: IpLocation | undefined}>>
+>('location', Storage.LOCAL);
+const locationFetching = storage.item<Partial<Timed<object>>>(
+	'location-fetching',
+	Storage.LOCAL,
+);
+
+export const getCachedLocation = () => storedLocation.load();
+
+const willLocationBeSentOutsideProxy = async () => {
+	if (
+		excludeApiFromProxy || // API generally excluded
+		(chrome.proxy as {onRequest?: () => void})?.onRequest // able to exclude specifically vpn/location calls
+	) {
+		return true;
+	}
+
+	// if there is no proxy connected, it's outside
+	return await isConnected();
+};
+
+export const getLocation = async (): Promise<IpLocation | undefined> => {
+	const savedLocation = await getCachedLocation();
+	const refreshInterval = getLocationRefreshInterval();
+
+	if (
+		milliSeconds.diffInMilliSeconds(savedLocation?.time) < refreshInterval ||
+		(await isSuspended('location'))
+	) {
+		return savedLocation?.location;
+	}
+
+	while (
+		Date.now() - ((await locationFetching.get())?.time || 0) <
+		milliSeconds.fromSeconds(2)
+	) {
+		await delay(200);
+		const savedLocation = await getCachedLocation();
+
+		if (
+			milliSeconds.diffInMilliSeconds(savedLocation?.time) < refreshInterval
+		) {
+			return savedLocation?.location;
+		}
+	}
+
+	if (!(await willLocationBeSentOutsideProxy())) {
+		// Cannot get relevant result from vpn/location
+		return savedLocation?.location;
+	}
+
+	try {
+		await locationFetching.setValue(null);
+		const location = await fetchJson<IpLocation | undefined>('vpn/v1/location');
+
+		if (location) {
+			await storedLocation.set({
+				time: Date.now(),
+				location,
+			});
+		}
+
+		return location;
+	} catch (e) {
+		suspend('location');
+
+		if (e instanceof RefreshTokenError) {
+			throw e;
+		}
+
+		return savedLocation?.location;
+	} finally {
+		triggerPromise(locationFetching.remove());
+	}
+};
+
+const guessCountryFromTimezoneName = () => {
+	try {
+		return (
+			timezoneCountries[Intl.DateTimeFormat().resolvedOptions().timeZone] ??
+			undefined
+		);
+	} catch {
+		return undefined;
+	}
+};
+
+export const getCountryAndCoordinates = async (): Promise<{
+	coordinates: Partial<Coordinates>;
+	country: string;
+}> => {
+	const location = await getLocation();
+
+	return {
+		coordinates: {
+			Latitude: location?.Lat,
+			Longitude: location?.Long,
+		},
+		country:
+			location?.Country ??
+			guessCountryFromTimezoneName() ??
+			guessCountryFromLocale() ??
+			'XX',
+	};
+};
+
+export const fetchWithNetZone = async <
+	T,
+	D extends ResponseResult = ResponseResult,
+>(
+	url: string,
+	init?: RequestInit,
+	resultBuilder?: (response: Response, data: D) => T,
+): Promise<T> => {
+	const location = await getLocation();
+	const netZone = location?.IP;
+
+	if (netZone) {
+		init ||= {};
+		init.headers ||= {};
+		Object.assign(init.headers, {
+			'x-pm-netzone': netZone.replace(/\.\d+$/, '.0'),
+			'x-pm-country': location?.Country,
+		});
+	}
+
+	return await fetchJson<T, D>(url, init, undefined, resultBuilder);
+};
