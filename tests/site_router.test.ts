@@ -3,6 +3,7 @@ import {buildRoutePacCases, siteRouteBypassGuard} from '../source/js/siteRouter/
 import {evaluateSiteSplitConflict} from '../source/js/siteRouter/splitConflict';
 import {SplitTunnelingMode} from '../source/js/vpn/WebsiteFilter';
 import {helperMayRoute} from '../source/js/siteRouter/consentGate';
+import {connectionLabel,connectionDetail} from '../source/js/siteRouter/connectionLabels';
 import {countriesFromProtonLogicals} from '../source/js/siteRouter/countryCatalog';
 import {classifyBlock, DEFAULT_POLICY, findRule, normalizeDomain, validatePolicy} from '../source/js/siteRouter/policy';
 
@@ -149,4 +150,22 @@ test('Proton-derived catalog mirrors country availability and upgrade locks',()=
   assert.equal(plus.find(c=>c.code==='CH')?.serverCount,2);
   assert.equal(plus.find(c=>c.code==='GB')?.name,'United Kingdom');
   assert.equal(plus.filter(c=>c.available).length,4);
+});
+
+test('status distinguishes official Proton from Helper-owned account',()=>{
+  const separate=connectionLabel({connected:false,signedIn:false,proxyControl:'controlled_by_other_extensions'});
+  assert.match(separate,/Another extension controls/);
+  assert.match(separate,/cannot read/);
+  assert.doesNotMatch(separate,/VPN disconnected|Proton disconnected/);
+  const missing=connectionLabel({connected:false,signedIn:false,proxyControl:'controllable_by_this_extension'});
+  assert.match(missing,/Helper has no Proton session/);
+  assert.match(missing,/official Proton login is separate/);
+  const own=connectionLabel({connected:true,signedIn:true,ownsProxy:true,selectedCountry:'CH'});
+  assert.match(own,/Helper Proton connection reported active/);
+  assert.match(own,/external exit IP not verified/);
+  const pending=connectionLabel({connected:false,signedIn:true,ownsProxy:false});
+  assert.match(pending,/Helper has its own Proton session/);
+  const detail=connectionDetail({signedIn:false,proxyControl:'controlled_by_other_extensions',proxyMode:'pac_script'});
+  assert.match(detail,/Browser proxy: another extension/);
+  assert.match(detail,/Official Proton credentials are not shared/);
 });

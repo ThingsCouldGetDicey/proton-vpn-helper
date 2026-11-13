@@ -59,6 +59,12 @@ chrome.runtime.onInstalled.addListener(async()=>{
       tabs=js("return chrome.tabs.query({})")
       assert not any((x.get('url') or '').endswith('/onboarding.html') for x in tabs),tabs
       print('PASS no automatic onboarding tab when helper is installed')
+      text=js("return document.querySelector('#vpn-status')?.textContent")
+      details=js("return document.querySelector('#connection-details')?.textContent")
+      assert text and ('Another extension controls' in text or 'Helper has no Proton session' in text),(text,details)
+      assert 'VPN disconnected' not in text,(text,details)
+      assert 'Official Proton credentials are not shared' in details
+      print('PASS Helper distinguishes account scopes without falsely claiming official VPN disconnected')
       health=js("return chrome.runtime.sendMessage({type:'protonSiteRouterHealth'})")
       assert health['signedIn'] is False and health['connected'] is False,health
       state=js("return chrome.proxy.settings.get({})")

@@ -1,4 +1,5 @@
 import {SPLIT_CONSENT_KEY,hasSplitConsent,setSplitConsent} from './splitConsent';
+import {connectionLabel} from './connectionLabels';
 import {DEFAULT_POLICY, STORE_KEY, validatePolicy, normalizeDomain, normalizeCountry,
 	type SiteRule, type SiteRouterPolicy} from './policy';
 
@@ -53,6 +54,7 @@ function render(policy: SiteRouterPolicy): void {
 }
 interface VpnStatus {
 	connected?: boolean;
+	signedIn?: boolean;
 	ownsProxy?: boolean;
 	proxyControl?: string;
 	delegated?: boolean;
@@ -71,9 +73,7 @@ async function refreshVpnStatus(): Promise<void> {
 	try {
 		const info = await chrome.runtime.sendMessage({type:'protonSiteRouterStatus'}) as VpnStatus;
 		if (!info?.connected) {
-			status.textContent = info?.proxyControl === 'controlled_by_other_extensions'
-				? 'Proxy controlled by another extension — routing unavailable'
-				: 'VPN disconnected — country routes not active';
+			status.textContent = connectionLabel(info);
 		} else {
 			const p = await fetchPolicy();
 			status.textContent = !info.delegated

@@ -27,7 +27,7 @@ export async function listProtonCountries():Promise<HelperCountryCatalog> {
       if(!user?.VPN) return {authenticated:true,entitled:false,
         countries:[],generatedAt:Date.now(),error:'Subscription details unavailable'};
       const entitled=user.VPN.BrowserExtension === true;
-      // This is exactly the source used by Proton's original country picker.
+      // This is the same catalogue code as the original picker, but requires a Helper-owned login.
       const logicals=await getSortedLogicals();
       const countries=countriesFromProtonLogicals(logicals,getUserMaxTier(user),
         c=>getCountryNameOrCode(c));
