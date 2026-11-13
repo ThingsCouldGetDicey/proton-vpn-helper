@@ -65,6 +65,18 @@ def main():
                 time.sleep(0.2)
             else: raise RuntimeError("Options page did not render")
             print("PASS isolated Chromium loaded the actual unpacked extension")
+            # A saved routing policy must never be represented as an active
+            # VPN connection until Proton owns the proxy and is authenticated.
+            for _ in range(35):
+                connection_status=js("return document.querySelector('#connection-status')?.textContent")
+                if connection_status and 'VPN disconnected' in connection_status:
+                    break
+                time.sleep(.2)
+            else:
+                raise AssertionError("Disconnected VPN was not clearly reported: "+str(connection_status))
+            status_response=js("""return chrome.runtime.sendMessage({type:'protonSiteRouterStatus'})""")
+            assert status_response['connected'] is False, status_response
+            print("PASS settings visibly distinguish enabled rules from a disconnected VPN")
             probe=js("return new Promise(done=>chrome.runtime.sendNativeMessage('com.local.proton_site_router',{action:'status'},r=>done({reply:r||null,error:chrome.runtime.lastError?.message||null})))")
             print("NATIVE_HOST_PROBE", json.dumps(probe, sort_keys=True))
             assert js("return document.querySelector('#rule-count').textContent") == "0"

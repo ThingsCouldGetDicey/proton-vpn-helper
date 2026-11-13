@@ -23,10 +23,11 @@ import type {ProxyServer, SplitTunnelingConfig} from '../vpn/ConnectionState';
 import {getIncludeOnlyList} from '../vpn/getIncludeOnlyList';
 import {getBypassList} from '../vpn/getBypassList';
 import {refreshSiteRouter, hasAnySiteRoutes, pacSiteRouteCode} from '../siteRouter/runtime';
+import {siteRouteBypassGuard} from '../siteRouter/pac';
 
 interface PacScript {
 	mode: 'pac_script';
-	pacScript: {data: string};
+	pacScript: {data: string; mandatory: boolean};
 }
 
 interface SystemProxy {
@@ -63,6 +64,13 @@ export const hasProxy = async (): Promise<boolean> =>
 			}
 
 			chrome.proxy.settings.get({}, async (details) => {
+				// Another extension or device policy owning the proxy is not
+				// proof that *this* VPN is protecting the browser.
+				if (details?.levelOfControl === 'controlled_by_other_extensions' ||
+					details?.levelOfControl === 'not_controllable') {
+					resolve(false);
+					return;
+				}
 				resolve(
 					details?.levelOfControl === 'controlled_by_this_extension' ||
 						(details?.value?.mode
@@ -133,6 +141,8 @@ const getIncludeCondition = (proxy: FixedServersProxy): string => {
 export const getPacScript = (proxy: FixedServersProxy): PacScript => ({
 	mode: 'pac_script',
 	pacScript: {
+		// Invalid PAC must not cause Chromium to silently fall back to DIRECT.
+		mandatory: true,
 		data: `function FindProxyForURL(url, host) {
 			var isLocal = /^\\d+(\\.\\d+){3}$/.test(host) && (
 				isInNet(host, "192.0.2.0", "255.255.255.0")
@@ -143,7 +153,7 @@ export const getPacScript = (proxy: FixedServersProxy): PacScript => ({
 				return "DIRECT";
 			}
 
-			${pacSiteRouteCode(getExcludeCondition(proxy))}
+			${pacSiteRouteCode(siteRouteBypassGuard(getIncludeCondition(proxy)))}
 
 			if (${getIncludeCondition(proxy)}) {
 				return "${proxy.rules.singleProxy.scheme.toUpperCase()} ${proxy.rules.singleProxy.host}:${proxy.rules.singleProxy.port}";

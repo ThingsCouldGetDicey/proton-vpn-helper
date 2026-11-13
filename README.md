@@ -50,7 +50,7 @@ These steps demonstrate **saving and managing preferences**. They do not prove t
 
 ![Real Chromium screenshot of Proton VPN Helper's Site Router options: one saved sample.example.com rule for Switzerland, with optional detection and automatic switching off](docs/images/routing-settings-demo.png)
 
-*Real screenshot from an isolated Chromium test, not a mock-up. The test saved `sample.example.com → CH`, confirmed that it appeared in the interface, and verified local native-policy synchronisation. **“Routing policy enabled” means the local settings are enabled; it is not a confirmation of an active Proton tunnel or Swiss exit IP.***
+*Real screenshot from an isolated Chromium test, not a mock-up. The test saved `sample.example.com → CH`, confirmed that it appeared in the interface, and verified local native-policy synchronisation. **The screen explicitly reports that the VPN is disconnected. Saving a rule is not evidence of a Swiss exit IP.***
 
 ## What works, and what still needs proof
 
@@ -58,7 +58,7 @@ These steps demonstrate **saving and managing preferences**. They do not prove t
 | --- | --- |
 | Build and load the extension in isolated Chromium | Sign in successfully with the independent extension ID |
 | Add, persist, display and remove country rules | Route two websites simultaneously through different *real* exit countries |
-| Validate domains and generate deterministic per-host proxy decisions | DNS, WebRTC, redirects and third-party resource leak protection |
+| Verify distinct site routes reach separate **local HTTPS test proxies** in Chromium | DNS, WebRTC, redirects and third-party resource leak protection on real Proton servers |
 | Save rules through the optional local MCP/native messaging bridge | Safe operation across disconnects, reconnects and browser differences |
 
 The status above reflects the available automated tests, **not** a security certification. A website may still require legal or service-mandated age or identity verification regardless of the VPN country.
@@ -67,6 +67,6 @@ The status above reflects the available automated tests, **not** a security cert
 
 This project is licensed under the **GNU GPLv3**, with attribution to the original [Proton browser extension](https://github.com/ProtonVPN/proton-vpn-browser-extension). It has its own name and icon and does not distribute Proton account credentials. The optional page classification processes visible text locally and is disabled by default.
 
-For technical details, see [development and test instructions](docs/LOCAL_DEVELOPMENT.md), [privacy](PRIVACY.md), and [security](SECURITY.md). The [marketplace release checklist](docs/STORE_READINESS.md) lists the tests and reviews required before Chrome Web Store submission.
+For technical details, see [development and test instructions](docs/LOCAL_DEVELOPMENT.md), [synthetic browser routing tests](docs/ROUTING_TESTS.md), [privacy](PRIVACY.md), and [security](SECURITY.md). The [marketplace release checklist](docs/STORE_READINESS.md) lists the tests and reviews required before Chrome Web Store submission.
 
 **There is no marketplace release yet.** Once live Proton routing and leak testing pass, this README should include a second, separately verified demonstration showing the actual exit IP for each website, alongside the setup screenshot above.

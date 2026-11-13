@@ -86,7 +86,7 @@ export function validatePolicy(input: unknown): SiteRouterPolicy {
 	return {
 		version: 1,
 		enabled: p.enabled !== false,
-		autoDetect: p.autoDetect !== false,
+		autoDetect: p.autoDetect === true,
 		autoRetry: p.autoRetry === true,
 		candidates,
 		rules,
