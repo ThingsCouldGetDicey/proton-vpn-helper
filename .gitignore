@@ -9,6 +9,7 @@ source.zip
 *.py
 !native/*.py
 !tests/*.py
+!scripts/*.py
 __pycache__/
 *.pyc
 *.d.ts

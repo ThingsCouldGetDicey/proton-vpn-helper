@@ -1,0 +1,39 @@
+:root{color-scheme:dark;font-family:Inter,"Segoe UI",Arial,sans-serif;background:#17141f;color:#f8f4ff}
+*{box-sizing:border-box}
+body{margin:0}
+main{width:385px;max-width:100%;padding:16px 18px 18px}
+body[data-page="settings"] main{width:min(780px,100%);margin:auto}
+header{display:flex;gap:12px;align-items:center;padding:0 0 14px;border-bottom:1px solid #554763}
+header img{object-fit:contain}
+header strong{display:block;font-size:17px}
+header small{display:block;margin-top:4px;color:#c6bbd2;font-size:11px;line-height:1.4}
+section{margin:14px 0;padding-bottom:12px;border-bottom:1px solid #3d324d}
+h2{font-size:15px;margin:0 0 11px}
+p{line-height:1.45;font-size:12px;margin:9px 0;color:#d8d0e3}
+.small{font-size:11px;color:#c7bed0}
+.statusarea{padding:13px;border:1px solid #6a5886;border-radius:9px;background:#221d2f}
+.statusarea strong{font-size:13px}
+.warning{border-left:3px solid #a389d6;padding:8px 10px;background:#282239;color:#dfd4f4}
+label{display:block;font-size:12px;color:#d9d0e7;margin:10px 0}
+label input:not([type="checkbox"]),select{display:block;width:100%;border:1px solid #635673;background:#1d1827;border-radius:7px;padding:10px;margin-top:6px;color:white;font:inherit}
+.choice{display:flex;gap:9px;align-items:center}
+.choice select{margin:0;flex:1}
+.choice img{width:20px;height:15px;object-fit:contain}
+.check{display:flex;gap:9px;align-items:center}
+.check input{accent-color:#8962ff}
+.actions{display:flex;gap:8px;margin-top:12px}
+button{font:inherit;cursor:pointer;border-radius:7px;padding:10px 12px;border:1px solid #74628e;background:#332743;color:white}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #d1b8ff;outline-offset:2px}
+button.primary{background:#7549f9;border-color:#7549f9;flex:1}
+button.secondary{background:#262034}
+button:disabled{opacity:.46;cursor:not-allowed}
+footer{display:flex;align-items:center;justify-content:space-between;gap:9px;padding-top:3px}
+footer span{font-size:10px;color:#bdb0ca}
+#feedback{color:#e2cbff}
+.preferences{margin:16px 0;padding:0;list-style:none}
+.preferences li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;border-bottom:1px solid #40324d}
+.preferences li span{flex:1}
+.preferences li img{width:20px;height:15px;object-fit:contain}
+.preferences li small{display:block;color:#bbb0c8}
+.preferences li button{padding:6px 8px}
+@media(min-width:640px){body[data-page="settings"] main{padding:30px}}

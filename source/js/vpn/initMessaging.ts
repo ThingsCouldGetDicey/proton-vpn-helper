@@ -13,6 +13,7 @@ import {getRuntime} from '../tools/getRuntime';
 import {readSiteRouterStatus, receiveSiteRouterSignal} from '../siteRouter/detector';
 import {getConnectionHealth, verifyDefaultExit} from '../siteRouter/connectionHealth';
 import {listProtonCountries} from '../siteRouter/providerCountries';
+import {handleOfficialHelperBridge} from '../siteRouter/officialHelperBridgeProvider';
 import {resolveSiteSplitConflict} from '../siteRouter/resolveSplit';
 import Tab = browser.tabs.Tab;
 
@@ -109,7 +110,19 @@ export const initMessaging = () => {
 	 */
 	runtime?.onMessageExternal.addListener(
 		async (request: WorkerExternalMessage, sender) => {
-			if (request.type === BackgroundAction.FORK) {
+			if (!request || typeof request !== 'object') return undefined;
+			if ((request as any)?.protocol === 'proton-vpn-helper/1') {
+				return handleOfficialHelperBridge(request as any, sender);
+			}
+			// Cross-extension admission adds a new sender class. Account-fork
+			// messages must still originate ONLY from Proton's account site;
+			// never accept account credentials or session forks from Helpers.
+			const senderFromProtonAccount = (() => {
+				try { return !sender.id && sender.url &&
+					new URL(sender.url).origin === 'https://account.proton.me'; }
+				catch {return false;}
+			})();
+			if (request.type === BackgroundAction.FORK && senderFromProtonAccount) {
 				const response = await forkSession(request);
 
 				const welcomePage = response?.partnerId

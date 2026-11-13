@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Proton VPN Helper — Official Proton connection</title>
+<link rel="stylesheet" href="css/companion.css"></head>
+<body data-page="settings"><main>
+<header><img src="img/icon-48.png" width="38" height="38" alt=""><div><strong>Proton VPN Helper</strong><small>Official connection companion · No second Proton sign-in or proxy</small></div></header>
+<section class="statusarea"><strong id="official-state">Checking official Proton installation…</strong>
+<p id="proxy-state">Checking browser proxy…</p>
+<p id="bridge-state" role="status" aria-live="polite">Checking Proton integration support…</p>
+<p class="small">Your existing official Proton VPN extension remains in charge. This companion can inspect browser proxy configuration, not account credentials, Proton's private session or subscriber server lists.</p></section>
+<section><h2>Website preferences — not applied to traffic</h2>
+<p>Choose preferred countries to prepare routing rules. The Helper does not override, disconnect or replace the official VPN. Applying different countries to simultaneous websites requires a supported Proton integration that does not exist in the current official extension.</p>
+<label>Website domain <input type="text" id="domain" placeholder="example.com" autocomplete="off" spellcheck="false"></label>
+<label>Desired country <input id="search" type="search" placeholder="Search available country names (availability not verified)"></label>
+<div class="choice"><img id="flag" alt="" hidden><select id="country" aria-label="Desired country"><option value="">Select country</option></select></div>
+<label class="check"><input id="subdomains" type="checkbox" checked> Include subdomains</label>
+<div class="actions"><button id="save" class="primary">Save pending preference</button><button id="apply" class="secondary" disabled>Apply through official Proton</button><button id="remove" class="secondary">Remove preference</button></div>
+<p id="feedback" role="status" aria-live="polite"></p>
+</section>
+<section><h2>Saved preferences</h2><p class="small">Without an approved Proton bridge, this remains a wishlist, not a list of active VPN routes. Existing rules from the earlier fork are preserved here but cannot affect proxy traffic.</p><ul class="preferences" id="saved-list"></ul></section>
+<section><h2>Connection observation</h2><p class="small">Health status refreshes locally each minute. To check a visible browser exit address, click the optional button. The IP echo website will see that request's public IP; this does not prove provider ownership or DNS/WebRTC safety.</p>
+<button id="exit-check" class="secondary" disabled>Check observed exit IP</button><p id="exit-result" class="small" role="status">Not checked</p></section>
+<footer><span>Unofficial companion · Original Proton extension stays authoritative</span></footer>
+</main><script type="module" src="js/ui.js"></script></body></html>

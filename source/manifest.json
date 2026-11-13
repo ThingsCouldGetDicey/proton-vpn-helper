@@ -37,7 +37,7 @@
 			"256": "img/icon-256.png",
 			"512": "img/icon-512.png"
 		},
-		"default_title": "Proton VPN Helper \u00b7 Route this website",
+		"default_title": "Proton VPN Helper · Route this website",
 		"default_popup": "helper-popup.html"
 	},
 	"content_security_policy": {
@@ -66,6 +66,9 @@
 	"externally_connectable": {
 		"matches": [
 			"https://account.proton.me/*"
+		],
+		"ids": [
+			"iggbajbkjippblegfmngbedfpfdkfcgd"
 		]
 	},
 	"web_accessible_resources": [
