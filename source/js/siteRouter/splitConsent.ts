@@ -1,6 +1,6 @@
 /** User-controlled delegation, stored in this *one* Proton-derived extension.
  * Not an OAuth token, account permission, or another extension's session.
- * Off by default. Only UI of Proton's own split-tunnelling page may grant it.
+ * Off by default. Grant is user-driven from an extension-owned settings screen, never a content script or background event.
  */
 export const SPLIT_CONSENT_KEY = 'protonVpnHelperManageSplitTunnelingV1';
 export async function hasSplitConsent():Promise<boolean> {

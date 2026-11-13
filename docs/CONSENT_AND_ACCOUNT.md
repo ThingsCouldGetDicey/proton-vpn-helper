@@ -11,10 +11,9 @@ Proton's browser split tunnelling normally offers **Include** and **Exclude** ru
 These steps apply to **the unofficial combined Proton VPN Helper extension**, not the unmodified official Proton VPN extension.
 
 1. Open the Helper toolbar popup using Alt+Shift+Y or its browser icon.
-2. Select **Proton VPN controls** to open the original Proton-style connection manager within the combined extension.
-3. Go to **Settings → Split tunnelling**.
-4. Enable **Allow Proton VPN Helper to manage split tunnelling**.
-5. Return to the Helper toolbar to assign a VPN country to a website.
+2. Before Proton sign-in, select **All website rules**, then use **Allow Proton VPN Helper to manage split tunnelling** at the top of the Helper settings page. Alternatively, the signed-out Proton controls offer **Configure Helper split tunnelling**, which leads to that same page.
+3. If you are already signed into the combined fork, you can also enable that permission from **Proton VPN controls → Settings → Split tunnelling**.
+4. Return to the Helper toolbar to assign a country to a website. A real Proton sign-in and connection are still required before any actual VPN routing works.
 
 The setting starts **off**. While off, the Helper cannot apply site-country routes, modify Proton's Include/Exclude list or run automatic country retries. Saved rules remain available but inactive. Revocation restores the original editor.
 

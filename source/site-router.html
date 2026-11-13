@@ -14,7 +14,16 @@
   </header>
   <main>
    <p class="subtle" role="note">Experimental build. A saved country rule is not proof of an active VPN or a verified exit IP. Do not use this test profile for sensitive browsing.</p>
-   <p class="subtle" id="delegation-status" role="status" aria-live="polite">Checking Helper management permission…</p>
+   <section class="consent-panel" aria-labelledby="consent-heading">
+     <div><h2 id="consent-heading">Split tunnelling management</h2>
+       <p>Permit the Helper to manage website exceptions and saved country routes. You can revoke this any time. This is not Proton account sign-in.</p>
+     </div>
+     <label class="consent-toggle" for="helper-consent-switch">
+       <span>Allow Proton VPN Helper to manage split tunnelling</span>
+       <input id="helper-consent-switch" type="checkbox" aria-describedby="delegation-status">
+     </label>
+     <p class="subtle" id="delegation-status" role="status" aria-live="polite">Checking Helper management permission…</p>
+   </section>
    <section class="hero">
     <span class="eyebrow">POLICY ENGINE / VERSION 1</span>
     <h1>One browser. Different countries for different websites.</h1>

@@ -93,7 +93,40 @@ def main():
             denied=js("return chrome.runtime.sendMessage({type:'protonSiteRouterResolveSplit',domain:'sample.example.com'})")
             assert denied['ok'] is False and 'Grant Helper management' in denied['reason'],denied
             print('PASS backend rejects direct split-list mutation messages without consent')
-            # Grant only from original Proton split-tunnelling settings UI.
+            # The fork's original controls require account sign-in; local
+            # Helper permission must remain discoverable *without* it.
+            wd('POST','/url',{'url':f'chrome-extension://{EXT_ID}/popup.html'})
+            for _ in range(55):
+                if js("return !!document.querySelector('#helper-open-signedout-settings')"):break
+                time.sleep(.15)
+            else:raise AssertionError('Signed-out Proton view omitted Helper settings link')
+            js("document.querySelector('#helper-open-signedout-settings').click();return true;")
+            for _ in range(40):
+                tabs=js("return chrome.tabs.query({})")
+                if any(tab.get('url','').endswith('/site-router.html') for tab in tabs):break
+                time.sleep(.15)
+            else:raise AssertionError('Signed-out settings link did not open Helper options')
+            wd('POST','/url',{'url':f'chrome-extension://{EXT_ID}/site-router.html'})
+            for _ in range(40):
+                if js("return !!document.querySelector('#helper-consent-switch')"):break
+                time.sleep(.15)
+            else:raise AssertionError('Consent control not visible in unauthenticated Helper settings')
+            assert js("return document.querySelector('#helper-consent-switch').checked") is False
+            js("document.querySelector('#helper-consent-switch').click();return true;")
+            for _ in range(40):
+                flag=js("return chrome.storage.local.get(arguments[0]).then(v=>v[arguments[0]])",consent_key)
+                if flag is True:break
+                time.sleep(.15)
+            else:raise AssertionError('Explicit settings-page consent did not persist')
+            assert 'management allowed' in js("return document.querySelector('#delegation-status').textContent").lower()
+            js("document.querySelector('#helper-consent-switch').click();return true;")
+            for _ in range(40):
+                flag=js("return chrome.storage.local.get(arguments[0]).then(v=>v[arguments[0]])",consent_key)
+                if flag is False:break
+                time.sleep(.15)
+            else:raise AssertionError('Advanced settings consent revocation failed')
+            print('PASS signed-out Proton account screen links to independently configurable Helper permission')
+            # The original Proton-style Split tunnelling panel also supports the same switch.
             wd('POST','/url',{'url':f'chrome-extension://{EXT_ID}/popup.html'})
             for _ in range(60):
                 if js("return !!document.querySelector('#helper-manage-split')"):break

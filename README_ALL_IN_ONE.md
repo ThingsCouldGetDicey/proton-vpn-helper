@@ -48,3 +48,7 @@ The shortcut checks existing Proton split tunnelling: one explicit click can rem
 ## Reversible Proton Split tunnelling delegation
 
 Open Proton VPN controls within this fork, go to Settings → Split tunnelling, and opt into **Allow Proton VPN Helper to manage split tunnelling**. Only then can the Helper change individual Include/Exclude entries and apply per-site country preferences. The switch starts off, retains saved rules when revoked, restores the original editor, and updates both views live. This is not account OAuth; the account sign-in step is separate. See docs/CONSENT_AND_ACCOUNT.md.
+
+## Finding the switch before Proton sign-in
+
+The Proton-style connection and settings menu is available after Proton account sign-in, which may not be possible yet with this unofficial extension ID. To configure Helper permissions **without signing in**, open **All website rules** from the Helper toolbar or **Configure Helper split tunnelling** on the signed-out Proton screen. The same reversible switch is at the top of the Helper settings page. Granting it does **not** sign into Proton or activate VPN protection.

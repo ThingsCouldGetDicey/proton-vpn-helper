@@ -1,4 +1,4 @@
-import {SPLIT_CONSENT_KEY,hasSplitConsent} from './splitConsent';
+import {SPLIT_CONSENT_KEY,hasSplitConsent,setSplitConsent} from './splitConsent';
 import {DEFAULT_POLICY, STORE_KEY, validatePolicy, normalizeDomain, normalizeCountry,
 	type SiteRule, type SiteRouterPolicy} from './policy';
 
@@ -60,9 +60,11 @@ interface VpnStatus {
 	configured?: number;
 }
 async function refreshDelegation(): Promise<void> {
-	byId('delegation-status').textContent = (await hasSplitConsent())
-		? 'Helper management allowed from Proton VPN controls → Split tunnelling. Website routes may be applied when Proton is connected.'
-		: 'Helper management OFF. Open Proton VPN controls → Split tunnelling to grant permission. Saved rules are inactive until then.';
+	const allowed=await hasSplitConsent().catch(()=>false);
+	byId<HTMLInputElement>('helper-consent-switch').checked=allowed;
+	byId('delegation-status').textContent=allowed
+		? 'Helper management allowed. Proton login and VPN connection are still required before country routes can work.'
+		: 'Helper management OFF. Country preferences remain inactive until you enable this option. Proton VPN handles authentication separately.';
 }
 async function refreshVpnStatus(): Promise<void> {
 	const status = byId('connection-status');
@@ -86,6 +88,14 @@ async function refreshVpnStatus(): Promise<void> {
 }
 async function setup() {
 	render(await fetchPolicy());
+	byId<HTMLInputElement>('helper-consent-switch').addEventListener('change',(event)=>{
+		const input=event.currentTarget as HTMLInputElement;
+		const requested=input.checked;
+		input.disabled=true;
+		void setSplitConsent(requested).catch(()=>{
+			notice('Permission could not be changed. No new access granted.');
+		}).finally(()=>{input.disabled=false;void refreshDelegation();});
+	});
 	byId<HTMLFormElement>('add-rule').addEventListener('submit', (ev) => {
 		ev.preventDefault();
 		void (async () => {

@@ -3,13 +3,17 @@ import {SPLIT_CONSENT_KEY,hasSplitConsent,setSplitConsent} from './splitConsent'
 import {STORE_KEY} from './policy';
 
 /** Shares precisely the same permission with the Helper toolbar.
- * Delegation can only be granted here, on Proton's own split-tunnelling page.
+ * Delegation can also be granted from the extension's advanced settings page
+ * when the account sign-in view prevents access to Proton's normal controls.
  */
 export function installProtonSplitConsentUi(root:ParentNode=document):void {
   const toggle=root.querySelector<HTMLInputElement>('#helper-manage-split');
   const status=root.querySelector<HTMLElement>('#helper-delegation-status');
   const splitPage=root.querySelector<HTMLElement>('[data-page="split-tunneling"]');
   const open=root.querySelector<HTMLButtonElement>('#helper-manage-open');
+  root.querySelector<HTMLButtonElement>('#helper-open-signedout-settings')?.addEventListener('click',()=>{
+    void chrome.tabs.create({url:chrome.runtime.getURL('site-router.html')});
+  });
   if (!toggle || !status) return;
   let updating=false;
   let allowedNow=false;
