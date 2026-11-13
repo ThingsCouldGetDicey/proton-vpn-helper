@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Proton VPN Helper — Official connection companion</title>
+<link rel="stylesheet" href="css/companion.css">
+</head><body>
+<main>
+  <header><img src="img/icon-48.png" width="34" height="34" alt="">
+    <div><strong>Proton VPN Helper</strong><small>Companion to the official Proton VPN extension</small></div>
+  </header>
+  <section class="statusarea">
+    <strong id="official-state" role="status">Checking official Proton installation…</strong>
+    <p id="proxy-state">Checking browser proxy…</p>
+    <p id="bridge-state" role="status" aria-live="polite">Checking whether Proton supports the authorised Helper bridge…</p>
+    <p class="small">Your Proton login stays inside the official extension. The Helper never signs into Proton or controls its connection.</p>
+  </section>
+  <section>
+    <h2>Website country preferences</h2>
+    <label>Current website
+      <input id="domain" type="text" placeholder="example.com" spellcheck="false" autocomplete="off">
+    </label>
+    <label>Desired country — not applied yet
+      <input id="search" type="search" placeholder="Search countries" aria-label="Search countries">
+    </label>
+    <div class="choice">
+      <img id="flag" alt="" width="20" height="15" hidden>
+      <select id="country" aria-label="Preferred country"><option value="">Select desired country</option></select>
+    </div>
+    <label class="check"><input id="subdomains" type="checkbox" checked> Include subdomains</label>
+    <div class="actions">
+      <button id="save" type="button" class="primary">Save preference</button>
+      <button id="apply" type="button" class="secondary" disabled>Apply via official Proton</button>
+      <button id="remove" type="button" class="secondary">Remove</button>
+    </div>
+    <p class="warning" role="note">Saved preferences do not change the official Proton connection unless an approved bridge explicitly confirms the route. Per-site country switching needs an integration authorised by Proton.</p>
+    <p id="feedback" role="status" aria-live="polite"></p>
+  </section>
+  <section>
+    <h2>Connection evidence</h2>
+    <p class="small">Browser proxy settings are monitored locally every minute. This cannot prove Proton sign-in or which provider owns the proxy.</p>
+    <button id="exit-check" type="button" class="secondary" disabled>Check observed exit IP</button>
+    <p id="exit-result" class="small" role="status">External IP checks are manual only. country.is receives the request's public IP.</p>
+  </section>
+  <footer><button type="button" id="open-settings">All saved preferences</button>
+    <span>Use the original Proton toolbar icon to connect or change country.</span></footer>
+</main>
+<script type="module" src="js/ui.js"></script>
+</body></html>

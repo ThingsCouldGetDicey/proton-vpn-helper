@@ -1,109 +1,78 @@
-# Proton VPN Helper
+# Proton VPN Helper — official-connection companion
 
-**Choose a preferred Proton VPN country for each website, without constantly changing the VPN country for your whole browser.**
+**Problem:** Proton VPN's browser extension lets you connect to a country and include or exclude websites, but it doesn't provide per-website *country* selection. Switching between countries by hand is cumbersome.
 
-An independent, open-source modification of [Proton VPN's browser extension](https://github.com/ProtonVPN/proton-vpn-browser-extension). **Unofficial — not affiliated with or endorsed by Proton.**
+**Goal:** Let users save a country for each website and eventually automate those choices, **using only the official Proton VPN browser connection and account**. No second Proton login, no competing browser proxy.
 
-> **Developer preview — not ready for everyday VPN use.** The settings interface, saved rules and local policy sync have passed automated browser tests. Signing in to Proton with this modified extension, routing real traffic through different countries, and preventing network leaks have **not** been verified. Do not replace your trusted VPN setup with this build yet.
+## What works today (v1.4.1)
 
-## The problem
-
-Imagine you normally use a UK VPN server, but one website is only available through a Netherlands exit and another works best through Switzerland.
-
-With the usual browser VPN controls, you have to change the active country when you change websites, then remember to change it back. Conventional split tunnelling can include or exclude websites from the VPN, but it does **not** assign a different VPN country to each website.
-
-**Proton VPN Helper is intended to remove that repeated manual switching.** Give a website a country once; the helper remembers the preference while Proton remains responsible for the actual VPN connection.
-
-## How it should work
-
-| Website | Intended VPN exit |
+| Feature | Status |
 | --- | --- |
-| Anything without a rule | Your normal Proton-selected country |
-| `sample.example.com` | Switzerland (`CH`) |
-| `news.example.org` | Netherlands (`NL`) |
+| Detect whether the official Proton extension is installed and enabled | **Working**, via Chrome extension-management metadata |
+| Observe whether a browser proxy is configured | **Working**, read-only; ownership and account sign-in cannot be proved |
+| Monitor changes in browser proxy configuration | **Working**, locally at least once per minute |
+| Save/remove desired countries for websites | **Working**, stored locally as **pending preferences** |
+| Show original Proton flag artwork next to requested countries | **Working**; these are not account eligibility claims |
+| Preserve old saved site preferences while disabling old VPN automation | **Working**, tested across a browser profile upgrade |
+| Observe a public exit IP if the user explicitly requests it | **Optional**; not definitive proof of a Proton-owned exit |
+| Read the official Proton account, paid subscription or eligible server list | **Not possible through the currently exposed interface** |
+| Automatically change the official Proton country per website | **Not implemented**; requires Proton integration support |
+| Send commands to the official Proton split-tunnelling controls | **Not implemented**; official extension does not authorise our extension |
 
-These are **illustrative routing preferences**, not claims that those exit IPs have been observed in live traffic.
+**Important:** This is a companion, not a replacement VPN or a workaround for Chrome's extension isolation. Website country preferences **do not currently alter network traffic**. Continue connecting through the original Proton toolbar icon.
 
-The helper is designed to make three things possible: save a country per website, optionally recognise an explicit geographical restriction and try an eligible alternative, then remember an apparently successful route for next time. Manually saved rules take priority. Detection and automatic switching are **off by default**.
+![Actual headless Chromium screenshot of the official-connection companion](docs/images/official-proton-companion.png)
 
-Proton's existing engine remains responsible for authentication, server eligibility, connections and browser proxy settings. This is **one modified extension**, not a second extension fighting Proton for proxy control.
+*Real automated-browser capture. The test uses a synthetic proxy owner and no Proton account; it is not a successful Proton VPN connection demonstration.*
 
-## Using your existing official Proton account
+## Install in Brave
 
-**Signing into Proton VPN's official Brave extension does not sign the Helper in.** The two browser extensions have separate storage and authentication. Proton's official extension currently permits external messaging from the Proton account website, **not from this independent Helper extension**. The Helper therefore cannot automatically read the official account session, its subscription or its live country list, and must not attempt to copy private tokens.
+This repo contains two different builds. **Use only `distribution-companion/` beside official Proton.** Do not load the older `distribution/` fork alongside your everyday VPN.
 
-If you are already signed into official Proton, the Helper now says **"Helper has no Proton session. Your official Proton login is separate."** rather than incorrectly claiming your entire VPN is disconnected. If another extension controls the browser proxy, it reports that separately without asserting whose account owns it. The original Proton connection remains authoritative.
+1. Build the companion: `python3 scripts/build_companion.py`.
+2. Load its directory in Brave's unpacked-extension system. Existing Linux startup-flag installations can use `--load-extension=/absolute/path/to/distribution-companion` (combine multiple unpacked extensions in a single comma-separated flag).
+3. **Completely restart Brave** for startup-flag changes to take effect. Pin **Proton VPN Helper** from the Extensions menu; its shortcut is **Alt+Shift+Y**.
+4. Use the **official Proton VPN icon** to connect. Use the Helper icon to inspect the browser-proxy status and save preferred countries. These are not applied to your connection.
 
-An authorised integration exposed by Proton, or signing into the fork separately using Proton's user-driven account flow, is required before the Helper can actually load subscription-entitled countries or perform authenticated country routing. **Neither route has been verified for this fork.**
+The companion retains the former Helper's public extension key, so it has the **same extension ID** when loaded from the new path. Existing pending preferences can be read, while Helper-only legacy Proton login sessions are wiped and automatic country-routing flags are forced off. **The official Proton extension's storage is never accessed or altered.**
 
-## Proton countries and real connection evidence
+## Proton-approved two-way bridge (implemented, not yet authorised upstream)
 
-The Helper now uses **Proton's own live server catalogue**, including country names and the original flag SVGs, rather than a hard-coded list of destinations. Once signed into Proton, the list reflects which countries the subscription can actually use; locked and unavailable countries are identified but cannot be selected.
+Version 1.4.1 includes the **client** side of a consent-gated protocol, and the Proton-derived source fork contains a **reference provider implementation** for upstream review. The Helper requests a `proton-vpn-helper/1` handshake against the *real* official Proton extension ID, validates a fresh challenge nonce, and only accepts a signed-in status if that extension explicitly reports user delegation. It can then request the subscription's non-secret country list; any country-routing command must be authorised by Proton's own routing engine.
 
-The browser proxy and Proton account/session are checked automatically while Chromium is running. A separate **Check default VPN exit IP** control can ask country.is for the visible public IP and country. Optional recurring checks every five minutes are **off by default** because country.is will receive that request's public IP. A match alone is not proof that every website, DNS request or WebRTC connection uses Proton.
+Two-way `statusChanged` notifications are scoped to the official Proton extension ID. No sessions, passwords or proxy credentials are copied. Proton remains the only VPN connection owner.
 
-![Actual headless Chromium screenshot of the Helper with no account session and no invented Proton countries](docs/images/proton-catalog-signed-out.png)
+**The official Proton version currently installed from the browser store does not expose this protocol.** Until Proton accepts the upstream integration, the Helper will report the bridge as unsupported; a successful login to official Proton **will not automatically mark the Helper as linked**. That is a deliberate security and accuracy guarantee.
 
-*Real browser screenshot, not a mock-up. The country list is correctly empty while signed out; no authenticated Proton country-routing result has been verified yet.* See [connection verification and remaining proof obligations](docs/CONNECTION_VERIFICATION.md).
+We tested the complete handshake, explicit consent, account-status propagation, provider-supplied countries, authorised simulated route requests and revocation in headless Chromium with a **synthetic test-only provider**. This proves the protocol mechanics, not live Proton VPN connections. See [the upstream integration contract](docs/OFFICIAL_INTEGRATION_PROPOSAL.md).
 
-## The toolbar shortcut (developer preview)
+## How it works
 
-![Real Chromium screenshot of the Proton VPN Helper toolbar popup. The current site is assigned Switzerland; the VPN is explicitly shown disconnected. Original Proton controls remain available in the bottom bar.](docs/images/toolbar-current-site.png)
+The separate companion lives under [`source/companion/`](source/companion). Its small service worker observes `chrome.proxy.settings.get()`, uses Chrome's management metadata to check that the official Proton extension is enabled, and stores local data-only preferences. It **never calls `chrome.proxy.settings.set()` or `clear()`**, never intercepts Proton proxy authentication, and never requests Proton login credentials.
 
-*Real Chromium screenshot, not a mock-up or proof of a Swiss exit IP.*
+It can optionally call `api.country.is` after you press the **Check observed exit IP** button. That service receives the request's public IP. A response identifies the observed country **only for that request**; it doesn't prove Proton account authentication, traffic ownership, DNS isolation or concurrent country-specific routing.
 
-**First-time setup — before Proton sign-in:** Open **All website rules** from the Helper toolbar, or choose **Configure Helper split tunnelling** on its Proton sign-in screen. Use **Allow Proton VPN Helper to manage split tunnelling** at the top of the settings page. You can also access the same switch in **Proton VPN controls → Settings → Split tunnelling** once signed in. It starts **off** and is a local, reversible permission; without it the Helper cannot change split-tunnelling exceptions, apply per-site country routing or retry countries automatically. The two views mirror permission and rule changes in both directions. [Consent and Proton account walkthrough](docs/CONSENT_AND_ACCOUNT.md).
+The native messaging bridge remains available to Rune MCP for synchronising **only non-secret site preferences**. It cannot ask the companion to change the official VPN.
 
-This consent **does not sign into Proton or share the official extension's private account session**. Use Proton's own account sign-in within the unofficial combined extension; authentication with its independent extension ID is still unverified.
+## Tests
 
-For a website you are viewing, click the **Proton VPN Helper** icon in your browser toolbar (pin it through the Extensions/puzzle-piece menu if hidden), or use **Alt+Shift+Y**. If the shortcut conflicts with another extension, change it under `brave://extensions/shortcuts` or `chrome://extensions/shortcuts`.
+Run locally without opening desktop tabs:
 
-The popup reads the current website automatically and lets you choose a country. **Save website route** remembers the choice; **Remove country preference** returns to your existing Proton routing settings. **Proton VPN controls** opens the original connection and split-tunnelling interface, while **All website rules** opens the full rule manager.
+```bash
+python3 scripts/build_companion.py
+node --experimental-default-type=module tests/companion_policy.mjs
+node --experimental-default-type=module tests/official_bridge.mjs
+python3 tests/companion_browser.py
+python3 tests/companion_profile_upgrade.py
+python3 tests/official_bridge_browser.py
+```
 
-If Proton already **excludes** the exact website, the save button explicitly offers to move it into VPN country routing in the same click. It does **not** delete broader parent-domain exclusions, which may affect other websites. If Proton uses **Include-only** mode, the button can add the exact site to that mode when you save a country. Automatic block detection and country retry require separate opt-in.
+The headless Chromium tests verify that a second extension's exact proxy endpoint stays untouched, old auto-route flags cannot re-enable routing, no Proton sign-in screen or onboarding tab opens, and the extension retains its ID while deleting its *own* old session records.
 
-**Important:** Saving a country rule does not reconnect a disconnected VPN, inherit your official extension's login, or guarantee the country of the resulting traffic. An available server and authenticated live VPN must still be verified.
+The prior modified-VPN fork and its synthetic proxy tests are retained for research, **not deployed as the companion**. See [legacy documentation](docs/LEGACY_FORK_README.md).
 
-## Try the working settings interface
+## What is needed for actual per-website countries
 
-**For developers and testers only.** Use a disposable Chromium browser profile, **not** the profile where you rely on the official Proton extension.
+Proton would need to expose a specifically authorised, opt-in interface to the official extension. It should return non-secret connection and entitlement data, permit scoped routing requests, and implement the per-website transport in **Proton's own proxy engine**. The Helper would then issue instructions while Proton remains the sole VPN owner. See [proposed integration contract](docs/OFFICIAL_INTEGRATION_PROPOSAL.md).
 
-1. Clone this repository, install dependencies and build the extension:
-
-   ```bash
-   git clone https://github.com/ThingsCouldGetDicey/proton-vpn-helper.git
-   cd proton-vpn-helper
-   npm ci --ignore-scripts --no-audit --no-fund
-   npm run build
-   ```
-
-2. Open a **separate test profile** in Chrome, Brave, Chromium or Vivaldi. Visit its Extensions page (`chrome://extensions`, `brave://extensions` or `vivaldi://extensions`). Enable **Developer mode**, choose **Load unpacked**, and select this project's `distribution/` folder. Do not run two VPN extensions that control the proxy in the same profile.
-3. Before signing into Proton, choose **All website rules** from the Helper toolbar (or **Configure Helper split tunnelling** on the Proton sign-in screen) and enable **Allow Proton VPN Helper to manage split tunnelling**. If already signed in, the same switch also appears under **Proton VPN controls → Settings → Split tunnelling**. This is local permission, not an account login.
-4. Return to the Helper toolbar or press **Alt+Shift+Y** while viewing a website. Select a country and save. The popup explains conflicting Proton split-tunnelling rules; **All website rules** opens the advanced editor.
-
-These steps demonstrate **saving and managing preferences**. They do not prove that the modified extension can log in to Proton or route network traffic safely. Do not enable automatic switching for real browsing until the remaining checks are complete.
-
-### What the interface actually looks like
-
-![Real Chromium screenshot of Proton VPN Helper's Site Router options: one saved sample.example.com rule for Switzerland, with optional detection and automatic switching off](docs/images/routing-settings-demo.png)
-
-*Real screenshot from an isolated Chromium test, not a mock-up. The test saved `sample.example.com → CH`, confirmed that it appeared in the interface, and verified local native-policy synchronisation. **The screen explicitly reports that the VPN is disconnected. Saving a rule is not evidence of a Swiss exit IP.***
-
-## What works, and what still needs proof
-
-| Tested locally | Not yet verified |
-| --- | --- |
-| Build and load the toolbar popup, keyboard shortcut and rule badge in isolated Chromium | Sign in successfully with the independent extension ID |
-| Choose country per site; move exact exclusions and Include-only sites via explicit click | Route two websites simultaneously through different *real* exit countries |
-| Verify distinct site routes reach separate **local HTTPS test proxies** in Chromium | DNS, WebRTC, redirects and third-party resource leak protection on real Proton servers |
-| Keep original Proton controls accessible; sync local rules through the optional MCP/native bridge | Safe operation across disconnects, reconnects and browser differences |
-
-The status above reflects the available automated tests, **not** a security certification. A website may still require legal or service-mandated age or identity verification regardless of the VPN country.
-
-## Development, privacy and release
-
-This project is licensed under the **GNU GPLv3**, with attribution to the original [Proton browser extension](https://github.com/ProtonVPN/proton-vpn-browser-extension). It has its own name and icon and does not distribute Proton account credentials. The optional page classification processes visible text locally and is disabled by default.
-
-For technical details, see [development and test instructions](docs/LOCAL_DEVELOPMENT.md), [synthetic browser routing tests](docs/ROUTING_TESTS.md), [connection verification](docs/CONNECTION_VERIFICATION.md), [privacy](PRIVACY.md), and [security](SECURITY.md). The [marketplace release checklist](docs/STORE_READINESS.md) lists the tests and reviews required before Chrome Web Store submission.
-
-**There is no marketplace release yet.** Once live Proton routing and leak testing pass, this README should include a second, separately verified demonstration showing the actual exit IP for each website, alongside the setup screenshot above.
+**Proton VPN Helper is an unofficial open-source project.** Not affiliated with or endorsed by Proton AG. Original upstream source and artwork are used under the repository's GPLv3 licence.

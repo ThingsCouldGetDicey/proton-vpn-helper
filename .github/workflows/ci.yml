@@ -22,4 +22,15 @@ jobs:
       - run: python3 -m unittest discover -s tests -p test_policy_store.py -v
       - run: python3 -m py_compile tests/toolbar_integration.py
       - run: python3 -m py_compile tests/coexistence_browser.py
+      - name: Build official-connection-only companion
+        run: python3 scripts/build_companion.py
+      - name: Inspect companion JavaScript syntax
+        run: |
+          for file in distribution-companion/js/*.js; do node --check "$file"; done
+      - name: Companion policy and migration invariants
+        run: node --experimental-default-type=module tests/companion_policy.mjs
+      - name: Versioned Proton/Helper bridge contract tests
+        run: node --experimental-default-type=module tests/official_bridge.mjs
+      - name: Compile headless companion integration tests
+        run: python3 -m py_compile scripts/build_companion.py tests/companion_browser.py tests/companion_profile_upgrade.py tests/official_bridge_browser.py
       - run: npm run build

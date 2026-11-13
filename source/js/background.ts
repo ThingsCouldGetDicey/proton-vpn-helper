@@ -16,6 +16,7 @@ import {connectedServer} from './vpn/connectedServer';
 import {installSiteRouterDetector} from './siteRouter/detector';
 import {installSiteRouterToolbarBadge} from './siteRouter/toolbarBadge';
 import {installConnectionHealthMonitor} from './siteRouter/connectionHealth';
+import {installOfficialHelperBridgeNotifications} from './siteRouter/officialHelperBridgeProvider';
 import {installSiteRouterNativeSync} from './siteRouter/nativeSync';
 
 // Do not claim Chromium's global proxy when this unofficial fork is merely
@@ -37,6 +38,7 @@ initSentry();
 installSiteRouterDetector();
 installSiteRouterToolbarBadge();
 installConnectionHealthMonitor();
+installOfficialHelperBridgeNotifications();
 installSiteRouterNativeSync();
 initAuthInterceptor();
 initMessaging();
