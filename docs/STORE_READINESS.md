@@ -24,3 +24,5 @@ The new toolbar shortcut and split-tunnelling conversion have isolated Chromium 
 - [ ] Demonstrate authorised login in the independent fork and verify subscription-dependent country availability matches original Proton, including locked regions and flag icons.
 - [ ] Capture reproducible proof of authenticated country-specific Proton proxy exits and their actual external IPs; proxy ownership alone is not enough.
 - [ ] Verify no DNS/WebRTC/subresource leaks and safe reconnect/failure behaviour under the recurring health monitor.
+
+- [ ] Reproduce safe passive startup when an official Proton extension is already installed, across proxy ownership precedence and reconnects; no auto-open tabs.

@@ -11,12 +11,28 @@ import {initIdleWatcher} from './vpn/initIdleWatcher';
 import {initAuthInterceptor} from './vpn/initAuthInterceptor';
 import {initSentry} from './tools/sentry';
 import {setProxyToWaiterHost} from './tools/proxy';
+import {readSession} from './account/readSession';
+import {connectedServer} from './vpn/connectedServer';
 import {installSiteRouterDetector} from './siteRouter/detector';
 import {installSiteRouterToolbarBadge} from './siteRouter/toolbarBadge';
 import {installConnectionHealthMonitor} from './siteRouter/connectionHealth';
 import {installSiteRouterNativeSync} from './siteRouter/nativeSync';
 
-triggerPromise(setProxyToWaiterHost());
+// Do not claim Chromium's global proxy when this unofficial fork is merely
+// installed alongside the official Proton VPN extension.  The upstream
+// unconditional localhost:9 proxy otherwise wins and breaks connectivity.
+async function installWaiterForExistingHelperSession(): Promise<void> {
+  const session=await readSession().catch(()=>undefined);
+  const connection=await connectedServer.get().catch(()=>undefined);
+  if(!session?.uid || !connection?.value?.proxyHost) return;
+  const ownership=await new Promise<string>(resolve=>
+    chrome.proxy.settings.get({},details=>
+      resolve(details?.levelOfControl || 'unknown')));
+  if(ownership==='controlled_by_other_extensions' ||
+    ownership==='not_controllable') return;
+  await setProxyToWaiterHost();
+}
+triggerPromise(installWaiterForExistingHelperSession());
 initSentry();
 installSiteRouterDetector();
 installSiteRouterToolbarBadge();
