@@ -335,6 +335,16 @@
 							</div>
 						</div>
 
+						<section class="helper-split-delegation" aria-label="Proton VPN Helper management permission">
+							<label class="helper-delegation-row" for="helper-manage-split">
+								<span class="helper-delegation-text"><strong>Allow Proton VPN Helper to manage split tunnelling</strong>
+									<small>Let the Helper manage website exceptions and per-site country routing. Proton still handles your VPN connection.</small></span>
+								<input id="helper-manage-split" type="checkbox" aria-describedby="helper-delegation-status">
+							</label>
+							<p class="helper-delegation-status" id="helper-delegation-status" role="status" aria-live="polite">Helper control is off until you give permission.</p>
+							<button id="helper-manage-open" class="helper-delegation-link" type="button">Open Helper website rules</button>
+						</section>
+
 						<div class="split-tunneling-configuration">
 							<div class="split-tunneling-mode-switch flex space-between my1">
 								<div class="dropdown-selected" id="selectedMode" data-value="exclude">

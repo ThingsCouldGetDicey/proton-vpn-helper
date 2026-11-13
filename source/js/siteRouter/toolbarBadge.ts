@@ -3,6 +3,7 @@ import {loadRouterPolicy} from './runtime';
 import {findRule} from './policy';
 import {storedSplitTunneling} from '../vpn/storedSplitTunneling';
 import {evaluateSiteSplitConflict} from './splitConflict';
+import {SPLIT_CONSENT_KEY,hasSplitConsent} from './splitConsent';
 
 /** Toolbar badges are intentionally NOT green: saved country != verified exit IP. */
 async function updateTabBadge(tabId:number):Promise<void> {
@@ -14,10 +15,12 @@ async function updateTabBadge(tabId:number):Promise<void> {
     const policy=await loadRouterPolicy();
     const rule=policy.enabled && host ? findRule(host,policy.rules) : undefined;
     const conflict=rule ? evaluateSiteSplitConflict(host,await storedSplitTunneling.get()) : undefined;
-    const blocked=conflict?.kind !== undefined && conflict.kind !== 'none';
+    const delegated=await hasSplitConsent();
+    const blocked=!!rule && (!delegated || (!!conflict && conflict.kind !== 'none'));
     const text=blocked ? '!' : rule?.country || '';
     const title=blocked
-      ? 'Proton VPN Helper: saved '+rule?.country+' rule blocked by Proton split tunnelling'
+      ? !delegated ? 'Proton VPN Helper: permission revoked; country rule inactive'
+        : 'Proton VPN Helper: saved '+rule?.country+' rule blocked by Proton split tunnelling'
       : rule
         ? 'Proton VPN Helper: '+rule.country+' preference saved (exit IP not verified)'
         : 'Proton VPN Helper: choose a country for this website';
@@ -41,7 +44,7 @@ export function installSiteRouterToolbarBadge():void {
     if(change.url!==undefined || change.status==='complete')void updateTabBadge(tabId);
   });
   chrome.storage.onChanged.addListener((changes,area)=>{
-    if(area==='local'&&(changes['protonSiteRouterPolicyV1']||changes['bex-split-tunneling'])){
+    if(area==='local'&&(changes['protonSiteRouterPolicyV1']||changes['bex-split-tunneling']||changes[SPLIT_CONSENT_KEY])){
       updateActiveTabs();
     }
   });

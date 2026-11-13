@@ -6,9 +6,11 @@ import {classifyBlock} from './policy';
 	const report = async () => {
 		// An opt-in local scan: no page text is read until the user enables detection.
 		try {
-			const saved = await chrome.storage.local.get('protonSiteRouterPolicyV1');
+			const saved = await chrome.storage.local.get([
+				'protonSiteRouterPolicyV1','protonVpnHelperManageSplitTunnelingV1']);
 			const policy = saved['protonSiteRouterPolicyV1'] as {enabled?: boolean; autoDetect?: boolean} | undefined;
-			if (!policy || policy.enabled === false || policy.autoDetect !== true) return;
+			if (saved['protonVpnHelperManageSplitTunnelingV1'] !== true ||
+				!policy || policy.enabled === false || policy.autoDetect !== true) return;
 		} catch { return; }
 		const visible = document.body?.innerText || '';
 		// Limit classification to visible introductory copy and prominent error overlays.

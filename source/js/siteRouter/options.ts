@@ -1,3 +1,4 @@
+import {SPLIT_CONSENT_KEY,hasSplitConsent} from './splitConsent';
 import {DEFAULT_POLICY, STORE_KEY, validatePolicy, normalizeDomain, normalizeCountry,
 	type SiteRule, type SiteRouterPolicy} from './policy';
 
@@ -18,7 +19,9 @@ async function storePolicy(p: SiteRouterPolicy) {
 	const updated = validatePolicy({...p, revision: Math.max(Date.now(), latest.revision + 1)});
 	await chrome.storage.local.set({[STORE_KEY]: updated});
 	render(updated);
-	notice('Saved locally. Browser routing refresh requested.');
+	notice((await hasSplitConsent())
+		? 'Saved locally. Browser routing refresh requested.'
+		: 'Saved locally. Helper management is OFF; routes remain inactive.');
 }
 function render(policy: SiteRouterPolicy): void {
 	byId('rule-count').textContent = String(policy.rules.length);
@@ -29,6 +32,7 @@ function render(policy: SiteRouterPolicy): void {
 	(byId<HTMLInputElement>('candidates')).value = policy.candidates.join(', ');
 	byId('connection-status').textContent = 'Checking VPN connection…';
 	void refreshVpnStatus();
+	void refreshDelegation();
 	const list = byId('rule-list');
 	list.innerHTML = policy.rules.length ? policy.rules
 		.slice().sort((a, b) => a.domain.localeCompare(b.domain))
@@ -51,8 +55,14 @@ interface VpnStatus {
 	connected?: boolean;
 	ownsProxy?: boolean;
 	proxyControl?: string;
+	delegated?: boolean;
 	unavailable?: number;
 	configured?: number;
+}
+async function refreshDelegation(): Promise<void> {
+	byId('delegation-status').textContent = (await hasSplitConsent())
+		? 'Helper management allowed from Proton VPN controls → Split tunnelling. Website routes may be applied when Proton is connected.'
+		: 'Helper management OFF. Open Proton VPN controls → Split tunnelling to grant permission. Saved rules are inactive until then.';
 }
 async function refreshVpnStatus(): Promise<void> {
 	const status = byId('connection-status');
@@ -64,7 +74,9 @@ async function refreshVpnStatus(): Promise<void> {
 				: 'VPN disconnected — country routes not active';
 		} else {
 			const p = await fetchPolicy();
-			status.textContent = !p.enabled
+			status.textContent = !info.delegated
+				? 'Proton connected · Helper country routing disabled by permission'
+				: !p.enabled
 				? 'VPN connection reported · site rules paused'
 				: 'VPN connection reported · exit IP not verified';
 		}
@@ -120,6 +132,7 @@ async function setup() {
 	// A policy toggle must never make the interface claim the VPN is connected.
 	setInterval(() => {void refreshVpnStatus();}, 6000);
 	chrome.storage.onChanged.addListener((changes, area) => {
+		if (area === 'local' && changes[SPLIT_CONSENT_KEY]) void refreshDelegation();
 		if (area === 'local' && changes[STORE_KEY]) {
 			render(validatePolicy(changes[STORE_KEY].newValue));
 		}

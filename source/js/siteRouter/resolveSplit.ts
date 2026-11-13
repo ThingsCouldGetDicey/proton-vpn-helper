@@ -1,5 +1,6 @@
 'use background';
 import {normalizeDomain} from './policy';
+import {hasSplitConsent} from './splitConsent';
 import {evaluateSiteSplitConflict} from './splitConflict';
 import {storedSplitTunneling} from '../vpn/storedSplitTunneling';
 import {SplitTunnelingDomainManager} from '../vpn/SplitTunnelingDomainManager';
@@ -16,6 +17,7 @@ import {SettingChange} from '../messaging/MessageType';
 export async function resolveSiteSplitConflict(domainInput: string): Promise<
   {ok: boolean; reason?: string; changed?: boolean}
 > {
+  if(!await hasSplitConsent())return {ok:false,reason:'Grant Helper management in Proton VPN > Split tunnelling first'};
   let host: string;
   try { host = normalizeDomain(domainInput); }
   catch { return {ok:false,reason:'Invalid website domain'}; }
@@ -40,6 +42,9 @@ export async function resolveSiteSplitConflict(domainInput: string): Promise<
   const user = connected ? await getUser() : undefined;
   if (connected && (!user || !state?.setOption)) return {ok:false,
     reason:'Cannot verify Proton VPN session; split tunnelling left unchanged'};
+  // A concurrent revocation wins even if the connection check was slow.
+  if(!await hasSplitConsent())return {ok:false,
+    reason:'Helper management was revoked before the change was applied'};
   await storedSplitTunneling.setValue(updated.value, {
     enabled: updated.enabled, mode: updated.mode,
   });

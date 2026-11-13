@@ -18,3 +18,5 @@ Do not advertise the extension as bypassing legally mandatory age or identity ve
 Chrome Web Store policies: https://developer.chrome.com/docs/webstore/program-policies/policies
 
 The new toolbar shortcut and split-tunnelling conversion have isolated Chromium tests; these are NOT evidence of authenticated Proton traffic, permission compatibility on every browser, or marketplace approval.
+
+- [ ] Confirm that the new opt-in delegation control is clearly visible next to Proton split-tunnelling settings, starts off, can be revoked, and does not conflict with connection management in live authenticated sessions.

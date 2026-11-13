@@ -7,6 +7,7 @@ import {Feature} from '../vpn/Feature';
 import {proxyHost, proxyPort, scheme, singleProxyPort} from '../config';
 import type {ProxyServer} from '../vpn/ConnectionState';
 import {buildRoutePacCases} from './pac';
+import {helperMayRoute} from './splitConsent';
 import {DEFAULT_POLICY, STORE_KEY, type SiteRule, type SiteRouterPolicy,
 	findRule, normalizeCountry, normalizeDomain, validatePolicy} from './policy';
 
@@ -17,6 +18,10 @@ let policy: SiteRouterPolicy = {...DEFAULT_POLICY, candidates: [...DEFAULT_POLIC
 let active: ActiveRoute[] = [];
 let knownHosts = new Set<string>();
 let refreshId = 0;
+// Deny by default until the Proton settings consent has been loaded.
+let delegated = false;
+export function hasActiveSplitDelegation():boolean {return delegated;}
+export function updateSplitDelegation(allowed:boolean):void {delegated=allowed===true;}
 const unavailable = {host: '127.0.0.1', port: 9, country: '--', server: 'Unavailable (blocked)'};
 
 /** One Chrome/Firefox extension controls one browser-wide proxy. PAC selects multiple secure Proton endpoints. */
@@ -24,7 +29,7 @@ export function isSiteRouterProxyHost(host: string): boolean {return knownHosts.
 export function getRouterPolicy(): SiteRouterPolicy {return policy;}
 export function getActiveRoutes(): ActiveRoute[] {return [...active];}
 export function getRouteForHostname(hostname: string): ActiveRoute | undefined {
-	if (!policy.enabled) return undefined;
+	if (!helperMayRoute(delegated,policy.enabled)) return undefined;
 	const rule = findRule(hostname, policy.rules);
 	return rule && active.find((r) => r.rule.domain === rule.domain);
 }
@@ -89,7 +94,7 @@ export function firefoxSiteProxy(host: string, credentials?: {username: string; 
 }
 /** PAC syntax is deliberately constructed only from validated host/country data, never arbitrary URLs. */
 export function pacSiteRouteCode(excludeCondition: string): string {
-	return policy.enabled ? buildRoutePacCases(active, scheme, excludeCondition) : '';
+	return helperMayRoute(delegated,policy.enabled) ? buildRoutePacCases(active,scheme,excludeCondition) : '';
 }
 export async function updateManualRule(domainInput: string, countryInput: string, subdomains = true): Promise<void> {
 	const domain = normalizeDomain(domainInput);
@@ -103,4 +108,4 @@ export async function removeSiteRule(domainInput: string): Promise<void> {
 	const prev = await loadRouterPolicy();
 	await saveRouterPolicy({...prev, rules: prev.rules.filter((r) => r.domain !== domain)});
 }
-export function hasAnySiteRoutes(): boolean {return policy.enabled && active.length > 0;}
+export function hasAnySiteRoutes(): boolean {return helperMayRoute(delegated,policy.enabled) && active.length > 0;}

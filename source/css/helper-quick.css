@@ -278,3 +278,14 @@ footer {
   background: #181428;
   border-top: 1px solid #493955;
 }
+
+.authority {
+  margin: -6px 0 13px;
+  padding: 8px 10px;
+  background: #30213d;
+  border: 1px solid #6b527f;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #eddcfb;
+}

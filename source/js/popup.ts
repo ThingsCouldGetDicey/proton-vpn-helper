@@ -3,9 +3,11 @@ import {start} from './popup-starter';
 import {accountURL} from './config';
 import {triggerPromise} from './tools/triggerPromise';
 import {handleError} from './tools/sentry';
+import {installProtonSplitConsentUi} from './siteRouter/protonConsentUi';
 
 ((body) => {
 	triggerPromise(start(body));
+	installProtonSplitConsentUi();
 
 	window.addEventListener(
 		'message',

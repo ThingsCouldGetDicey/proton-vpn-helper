@@ -21,3 +21,7 @@ The inherited VPN requires browser proxy, webRequest, storage, tabs and related 
 Removing the extension removes its browser-local rules. If the optional native host was installed, its local policy file must be removed separately.
 
 This is intended behaviour documented from the source, not an independent audit or guarantee that network traffic cannot leak.
+
+## Helper split-tunnelling delegation
+
+The combined extension stores a local boolean permission that defaults off. It is explicitly toggled from Proton's split-tunnelling settings. The Helper reads that permission to decide whether it may manage website exceptions or apply country routing. Switching it off retains saved local rules but disables their application; it does not sign out of Proton or retrieve Proton account credentials.

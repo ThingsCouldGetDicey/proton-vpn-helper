@@ -2138,3 +2138,99 @@ body:not(.auto-theme, .light-theme) {
 		}
 	}
 }
+
+
+/* Independent fork only: reversible user permission immediately below Proton split tunnelling. */
+.helper-split-delegation {
+  margin: 13px 15px;
+  padding: 12px;
+  border: 1px solid #6b5587;
+  border-radius: 10px;
+  background: rgb(110, 75, 153, 0.14);
+}
+
+.helper-delegation-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  cursor: pointer;
+}
+
+.helper-delegation-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 5px;
+  line-height: 1.35;
+}
+
+.helper-delegation-text strong {
+  font-size: 13px;
+}
+
+.helper-delegation-text small {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+#helper-manage-split {
+  appearance: none;
+  position: relative;
+  width: 43px;
+  height: 25px;
+  flex: none;
+  margin: 0;
+  border: 1px solid #79698c;
+  border-radius: 14px;
+  background: #554966;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+#helper-manage-split::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #f6f1ff;
+  transition: transform 120ms ease;
+}
+
+#helper-manage-split:checked {
+  background: #7755ec;
+}
+
+#helper-manage-split:checked::after {
+  transform: translateX(18px);
+}
+
+#helper-manage-split:focus-visible {
+  outline: 2px solid #d9c8ff;
+  outline-offset: 3px;
+}
+
+.helper-delegation-status {
+  margin-top: 9px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.helper-delegation-link {
+  margin-top: 10px;
+  font-size: 12px;
+  text-decoration: underline;
+  color: #c8a9ff;
+}
+
+[data-page="split-tunneling"].helper-split-delegated .split-tunneling-configuration {
+  display: none !important;
+}
+
+[data-page="split-tunneling"].helper-split-delegated .split-tunneling-inner-action-block [data-st-action="toggle"] {
+  opacity: 0.45;
+  pointer-events: none;
+}

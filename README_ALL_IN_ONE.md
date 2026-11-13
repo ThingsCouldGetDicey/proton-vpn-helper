@@ -44,3 +44,7 @@ Authenticated live Proton sign-in, network fail-closed and IP/DNS/WebRTC leak te
 The one-extension toolbar action opens a compact per-website country picker. **Alt+Shift+Y** is the suggested keyboard shortcut. The original Proton popup is available through **Proton VPN controls**, and the advanced routing editor through **All website rules**. Pin the icon with your browser's Extensions menu; Chromium does not permit extensions to force themselves into the pinned toolbar.
 
 The shortcut checks existing Proton split tunnelling: one explicit click can remove an exact exclusion or include an exact site in Include-only mode before recording the chosen country. Broad exclusions remain unchanged and require review. Saved rule badges are neutral; only actual VPN/session checks may claim the connection is active.
+
+## Reversible Proton Split tunnelling delegation
+
+Open Proton VPN controls within this fork, go to Settings → Split tunnelling, and opt into **Allow Proton VPN Helper to manage split tunnelling**. Only then can the Helper change individual Include/Exclude entries and apply per-site country preferences. The switch starts off, retains saved rules when revoked, restores the original editor, and updates both views live. This is not account OAuth; the account sign-in step is separate. See docs/CONSENT_AND_ACCOUNT.md.
