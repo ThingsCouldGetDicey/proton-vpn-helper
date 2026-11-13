@@ -79,9 +79,53 @@ def main():
                 state=js("return document.querySelector('#vpn-status')?.textContent")
                 if state and 'VPN disconnected' in state: break
                 time.sleep(.15)
-            else: raise AssertionError('Not honest about disconnected VPN: '+str(state))
+            else:
+                diagnostic=js("return Promise.race([chrome.runtime.sendMessage({type:'protonSiteRouterStatus'}).then(v=>({ok:v})).catch(e=>({error:String(e)})),new Promise(ok=>setTimeout(()=>ok({timeout:true}),1800))])")
+                details=js("return {feedback:document.querySelector('#feedback')?.textContent,catalog:document.querySelector('#country-source')?.textContent,ready:document.readyState}")
+                raise AssertionError('VPN status never settled: '+str(state)+' msg='+str(diagnostic)+' details='+str(details))
             assert js("return document.querySelector('#auto-detect').checked") is False
             assert js("return document.querySelector('#auto-retry').checked") is False
+            assert js("return document.querySelector('#verify-exit').disabled") is True
+            assert js("return document.querySelector('#auto-verify-exit').checked") is False
+            js("document.querySelector('#auto-verify-exit').click();return true;")
+            for _ in range(30):
+                consent=js("return chrome.storage.local.get('protonVpnHelperAutoExitVerifyV1').then(v=>v.protonVpnHelperAutoExitVerifyV1)")
+                if consent is True:break
+                time.sleep(.15)
+            else:raise AssertionError('Explicit periodic IP check consent not saved')
+            js("document.querySelector('#auto-verify-exit').click();return true;")
+            for _ in range(30):
+                consent=js("return chrome.storage.local.get('protonVpnHelperAutoExitVerifyV1').then(v=>v.protonVpnHelperAutoExitVerifyV1)")
+                if consent is False:break
+                time.sleep(.15)
+            else:raise AssertionError('Periodic IP check consent not revoked')
+            print('PASS external IP monitoring is explicitly opt-in and revocable')
+            assert js("return document.querySelector('#country-list').children.length") == 0
+            assert js("return document.querySelector('#current-country-flag').hidden") is True
+            # The country picker reuses Proton's bundled flags; these are
+            # assets, not proof of an available Proton subscription.
+            assert len(list((ROOT/'distribution/img/flags').glob('*.svg'))) >= 200
+            print('PASS bundled original Proton country SVG flags, no fabricated signed-out country list')
+            catalog=js("return chrome.runtime.sendMessage({type:'protonSiteRouterCountries'})")
+            assert catalog['authenticated'] is False and catalog['countries']==[], catalog
+            assert 'Sign into Proton' in js("return document.querySelector('#country-source').textContent")
+            alarm=js("return chrome.alarms.get('protonVpnHelperConnectionHealth')")
+            assert alarm and alarm['periodInMinutes']>=1,alarm
+            health=js("return chrome.runtime.sendMessage({type:'protonSiteRouterHealth'})")
+            assert health['connected'] is False and health['signedIn'] is False,health
+            check=js("return chrome.runtime.sendMessage({type:'protonSiteRouterVerifyExit'})")
+            assert check['ok'] is False and 'required' in check['reason'],check
+            print('PASS no fabricated countries, always-on health alarm, no disconnected IP probe')
+            screenshot=os.environ.get('SIGNEDOUT_SCREENSHOT_PATH')
+            if screenshot:
+                import io
+                from PIL import Image
+                raw=base64.b64decode(wd('GET','/screenshot'),validate=True)
+                im=Image.open(io.BytesIO(raw))
+                dest=Path(screenshot)
+                dest.parent.mkdir(parents=True,exist_ok=True)
+                im.crop((0,0,390,min(640,im.height))).save(dest)
+                print('PASS captured actual signed-out Proton catalogue and connection health UI')
             print('PASS truthful disconnected state and automatic switching off by default')
             # Delegation is OFF by default. The Helper must not be able to
             # modify split tunnelling or activate a country route yet.
@@ -156,6 +200,8 @@ def main():
                     return true;""",host)
                 time.sleep(.55)
                 js("""const select=document.querySelector('#country');
+                    if(![...select.options].some(o=>o.value===arguments[0]))
+                        select.add(new Option('SIMULATED '+arguments[0],arguments[0]));
                     select.value=arguments[0];
                     select.dispatchEvent(new Event('change',{bubbles:true}));return true;""",country)
             def get_rules():

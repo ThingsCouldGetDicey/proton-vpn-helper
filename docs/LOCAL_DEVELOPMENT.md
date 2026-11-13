@@ -31,3 +31,7 @@ For an up-to-date authentic toolbar screenshot:
     TOOLBAR_SCREENSHOT_PATH=docs/images/toolbar-current-site.png python3 -u tests/toolbar_integration.py
 
 Chrome/Brave decides which extension icons are pinned; the extension cannot pin itself. Users pin it through the browser Extensions menu and can customise keyboard shortcuts from the browser's extension shortcut settings.
+
+## Country catalogue and tunnel-status tests
+
+The country list derives from the same `getSortedLogicals()` result as Proton's built-in server picker, filtered by account tier and rendered with upstream flag SVGs. With no account session, it lists no invented destinations. The background connection heartbeat uses Chromium alarms every minute. External exit-IP checks require user opt-in. See [connection verification](CONNECTION_VERIFICATION.md). The headless toolbar integration test asserts signed-out safeguards, monitoring and blocked probes.

@@ -122,7 +122,7 @@ async function handleSignal(tabId: number, host: string, pageUrl: string,
  * A stored rule is not proof that the browser currently uses Proton.
  */
 export async function readSiteRouterStatus(): Promise<{
-	connected: boolean; ownsProxy: boolean; proxyControl: string; delegated: boolean;
+	connected: boolean; ownsProxy: boolean; proxyControl: string; proxyMode: string; delegated: boolean;
 	signedIn: boolean;
 	selectedCountry?: string; selectedServer?: string;
 	unavailable: number; configured: number;
@@ -131,19 +131,22 @@ export async function readSiteRouterStatus(): Promise<{
 	// Only a yes/no account state is mirrored, never Proton tokens or UIDs.
 	const signedIn = Boolean((await readSession().catch(()=>undefined))?.uid);
 	try {
-		const settings = await new Promise<{levelOfControl?: string}>(
+		const settings = await new Promise<{levelOfControl?: string;value?:{mode?:string;pacScript?:{mandatory?:boolean}}}>(
 			(resolve) => chrome.proxy.settings.get({incognito: false}, resolve));
 		const proxyControl = settings?.levelOfControl || 'unknown';
 		const ownsProxy = proxyControl === 'controlled_by_this_extension';
 		const vpn = getCurrentStateIfDefined();
-		const connected = ownsProxy && vpn?.name === 'on' && vpn.proxyEnabled === true;
-		return {connected, ownsProxy, proxyControl, signedIn, delegated:hasActiveSplitDelegation(),
+		const proxyMode=settings.value?.mode || 'unknown';
+		const configuredProxy=proxyMode==='pac_script'||proxyMode==='fixed_servers';
+		const connected = signedIn && ownsProxy && configuredProxy &&
+			vpn?.name === 'on' && vpn.proxyEnabled === true;
+		return {connected, ownsProxy, proxyControl, proxyMode, signedIn, delegated:hasActiveSplitDelegation(),
 			...(connected&&vpn?.data?.server?{selectedCountry:vpn.data.server.exitCountry,
 				selectedServer:vpn.data.server.name}:{}),
 			unavailable: routes.filter((r) => !r.endpoint).length,
 			configured: connected && hasActiveSplitDelegation() ? routes.filter((r) => !!r.endpoint).length : 0};
 	} catch {
-		return {connected: false, ownsProxy: false, signedIn, proxyControl: 'unknown',
+		return {connected: false, ownsProxy: false, signedIn, proxyControl: 'unknown',proxyMode:'unknown',
 			delegated:hasActiveSplitDelegation(),
 			unavailable: routes.length, configured: 0};
 	}

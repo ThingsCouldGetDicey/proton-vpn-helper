@@ -3,6 +3,7 @@ import {buildRoutePacCases, siteRouteBypassGuard} from '../source/js/siteRouter/
 import {evaluateSiteSplitConflict} from '../source/js/siteRouter/splitConflict';
 import {SplitTunnelingMode} from '../source/js/vpn/WebsiteFilter';
 import {helperMayRoute} from '../source/js/siteRouter/consentGate';
+import {countriesFromProtonLogicals} from '../source/js/siteRouter/countryCatalog';
 import {classifyBlock, DEFAULT_POLICY, findRule, normalizeDomain, validatePolicy} from '../source/js/siteRouter/policy';
 
 function test(name: string, cb: () => void) {
@@ -124,4 +125,28 @@ test('Helper delegation denies routing until explicitly enabled in Proton settin
   assert.equal(helperMayRoute(true,false),false);
   assert.equal(helperMayRoute(false,false),false);
   assert.equal(helperMayRoute(true,true),true);
+});
+
+test('Proton-derived catalog mirrors country availability and upgrade locks',()=>{
+  const sample=[
+    {ExitCountry:'CH',Name:'CH#1',Tier:2,Servers:[
+      {Domain:'ch.protonvpn.net',Enabled:true,Status:1}]},
+    {ExitCountry:'CH',Name:'CH#2',Tier:2,Servers:[
+      {Domain:'ch2.protonvpn.net',Enabled:true,Status:1}]},
+    {ExitCountry:'NL',Name:'NL-FREE#1',Tier:0,Servers:[
+      {Domain:'nl.protonvpn.net',Enabled:true,Status:1}]},
+    {ExitCountry:'US',Name:'US#1',Tier:2,Servers:[
+      {Domain:'us.protonvpn.net',Enabled:true,Status:1}]},
+    {ExitCountry:'UK',Name:'GB#1',Tier:2,Servers:[
+      {Domain:'gb.protonvpn.net',Enabled:true,Status:1}]},
+  ] as any;
+  const name=(code:string)=>({CH:'Switzerland',NL:'Netherlands',US:'United States',GB:'United Kingdom'} as Record<string,string>)[code]||code;
+  const free=countriesFromProtonLogicals(sample,0,name);
+  assert.equal(free.length,4);
+  assert.deepEqual(free.filter(c=>c.available).map(c=>c.code),['NL']);
+  assert.equal(free.find(c=>c.code==='CH')?.locked,true);
+  const plus=countriesFromProtonLogicals(sample,2,name);
+  assert.equal(plus.find(c=>c.code==='CH')?.serverCount,2);
+  assert.equal(plus.find(c=>c.code==='GB')?.name,'United Kingdom');
+  assert.equal(plus.filter(c=>c.available).length,4);
 });

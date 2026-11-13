@@ -11,6 +11,8 @@ import {getPartnerById} from '../account/partner/partners';
 import {delay} from '../tools/delay';
 import {getRuntime} from '../tools/getRuntime';
 import {readSiteRouterStatus, receiveSiteRouterSignal} from '../siteRouter/detector';
+import {getConnectionHealth, verifyDefaultExit} from '../siteRouter/connectionHealth';
+import {listProtonCountries} from '../siteRouter/providerCountries';
 import {resolveSiteSplitConflict} from '../siteRouter/resolveSplit';
 import Tab = browser.tabs.Tab;
 
@@ -44,6 +46,17 @@ export const initMessaging = () => {
 		// Dispatch our two narrow helper messages here, not from a competing
 		// runtime.onMessage listener; only the first response is delivered.
 		if (message?.type === 'protonSiteRouterStatus') return readSiteRouterStatus();
+		if(message?.type==='protonSiteRouterHealth') return getConnectionHealth();
+		// Account-specific country inventory and egress checks belong only to
+		// our own extension settings, never a website content script.
+		const ownUi=sender.id===chrome.runtime.id &&
+			['helper-popup.html','site-router.html'].some(name=>
+				sender.url===chrome.runtime.getURL(name));
+		if(message?.type==='protonSiteRouterCountries')
+			return ownUi ? listProtonCountries():Promise.resolve({authenticated:false,entitled:false,
+				countries:[],generatedAt:Date.now(),error:'Unsupported sender'});
+		if(message?.type==='protonSiteRouterVerifyExit')
+			return ownUi ? verifyDefaultExit():Promise.resolve({ok:false,reason:'Unsupported sender'});
 		if (message?.type === 'protonSiteRouterResolveSplit') {
 			// Only our explicit toolbar UI may alter the user's split tunnelling list.
 			if (sender.url !== chrome.runtime.getURL('helper-popup.html'))
