@@ -41,7 +41,7 @@ def main():
                 "goog:chromeOptions":{"binary":"/usr/bin/chromium","args":[
                     "--headless=new","--no-sandbox","--disable-gpu","--disable-dev-shm-usage",
                     "--disable-first-run","--no-first-run","--disable-background-networking",
-                    "--no-default-browser-check","--user-data-dir="+profile,
+                    "--no-default-browser-check","--window-size=1350,1060","--user-data-dir="+profile,
                     "--load-extension="+str(ROOT/"distribution"),
                     "--disable-extensions-except="+str(ROOT/"distribution"),
                 ]}}}}
@@ -88,7 +88,44 @@ def main():
             else:
                 raise RuntimeError("Native messaging did not push the rule into local policy")
             print("PASS native messaging sync Chrome -> isolated MCP policy file")
-            if os.environ.get("SHORT_QA") == "1": return
+            screenshot_path = os.environ.get("README_SCREENSHOT_PATH")
+            if screenshot_path:
+                # Documentation evidence must come from the REAL loaded options page,
+                # with a saved rule visibly rendered. Never substitute a mock-up.
+                import base64
+                displayed = js("return !!document.querySelector('.rule-name') && document.querySelector('.rule-name').textContent === 'sample.example.com'")
+                assert displayed, "Options screenshot refused: rule not visible in browser UI"
+                result = wd("GET", "/screenshot")
+                image_bytes = base64.b64decode(result, validate=True)
+                assert image_bytes[:8] == bytes([137,80,78,71,13,10,26,10]), "Not a PNG screenshot"
+                destination = Path(screenshot_path)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(image_bytes)
+                print("PASS documentation screenshot captured from actual Chromium options", destination)
+            if os.environ.get("SHORT_QA") == "1":
+                # Documentation screenshot is captured before rule removal.
+                # Verify the Remove control really clears browser and native state.
+                clicked = js("""const b = document.querySelector('button[data-remove="sample.example.com"]');
+                    if (!b) return false;
+                    b.click();
+                    return true;""")
+                assert clicked, "Remove button missing"
+                for _ in range(40):
+                    updated = js("return new Promise(done => chrome.storage.local.get(arguments[0]).then(v => done(v[arguments[0]] || null)))", POLICY_KEY)
+                    if updated and not updated.get("rules"):
+                        break
+                    time.sleep(.2)
+                else:
+                    raise RuntimeError("Remove button did not clear browser policy")
+                for _ in range(40):
+                    current = json.loads(policy_file.read_text())
+                    if not current["rules"]:
+                        break
+                    time.sleep(.2)
+                else:
+                    raise RuntimeError("Remove button did not sync removal to native host")
+                print("PASS remove control clears browser rule and native policy file")
+                return
             q["revision"] += 100000
             q["rules"][0]["country"] = "NL"
             policy_file.write_text(json.dumps(q))
